@@ -1,0 +1,46 @@
+{
+  "name": "vocabulary-memory-app",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest --run --coverage"
+  },
+  "private": true,
+  "packageManager": "npm@11.11.0",
+  "dependencies": {
+    "@angular/common": "^21.2.0",
+    "@angular/compiler": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "@angular/forms": "^21.2.0",
+    "@angular/platform-browser": "^21.2.0",
+    "@angular/router": "^21.2.0",
+    "@angular/service-worker": "^21.2.9",
+    "@tailwindcss/forms": "^0.5.11",
+    "dexie": "^4.4.2",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^21.2.7",
+    "@angular/cli": "^21.2.7",
+    "@angular/compiler-cli": "^21.2.0",
+    "@fast-check/vitest": "^0.4.0",
+    "@tailwindcss/postcss": "^4.2.2",
+    "@tailwindcss/vite": "^4.2.2",
+    "@vitest/coverage-v8": "^4.1.4",
+    "autoprefixer": "^10.5.0",
+    "fast-check": "^4.7.0",
+    "jsdom": "^29.0.2",
+    "postcss": "^8.5.10",
+    "prettier": "^3.8.1",
+    "tailwindcss": "^3.4.19",
+    "typescript": "~5.9.2",
+    "vitest": "^4.1.4"
+  }
+}
