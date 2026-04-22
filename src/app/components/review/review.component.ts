@@ -59,7 +59,7 @@ import { shuffleDeck } from '../../utils/shuffle';
 
     <!-- Review state -->
     @if (!isLoading() && !isComplete() && deck().length > 0 && currentCard) {
-      <div class="flex flex-col min-h-screen px-4 pt-6 pb-4">
+      <div class="flex flex-col min-h-screen px-4 pt-6 pb-24">
 
         <!-- Progress indicator -->
         <div class="text-center text-sm text-gray-500 mb-4">
@@ -75,11 +75,40 @@ import { shuffleDeck } from '../../utils/shuffle';
             <!-- Revealed content -->
             @if (isRevealed()) {
               <div class="mt-6 space-y-4 text-left">
-                <!-- Translation -->
+                <!-- POS + Translation -->
                 <div>
                   <span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Translation</span>
+                  @if (currentCard.pos) {
+                    <button
+                      type="button"
+                      class="ml-2 text-xs font-medium text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full hover:bg-purple-100 transition-colors"
+                      (click)="togglePosInfo()"
+                      [attr.aria-expanded]="showPosInfo()"
+                    >{{ currentCard.pos }}</button>
+                  }
                   <p class="text-xl font-semibold text-blue-700 mt-1">{{ currentCard.translation }}</p>
+                  @if (showPosInfo() && currentCard.pos) {
+                    <div class="mt-2 p-3 bg-purple-50 rounded-lg border border-purple-100 text-sm text-purple-800">
+                      {{ getPosDescription(currentCard.pos) }}
+                    </div>
+                  }
                 </div>
+
+                <!-- Synonyms -->
+                @if (currentCard.synonyms && currentCard.synonyms.length > 0) {
+                  <div>
+                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Synonyms</span>
+                    <p class="text-gray-700 mt-1 text-sm">{{ currentCard.synonyms.join(' · ') }}</p>
+                  </div>
+                }
+
+                <!-- Antonyms -->
+                @if (currentCard.antonyms && currentCard.antonyms.length > 0 && currentCard.antonyms[0] !== 'none') {
+                  <div>
+                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Antonyms</span>
+                    <p class="text-gray-700 mt-1 text-sm">{{ currentCard.antonyms.join(' · ') }}</p>
+                  </div>
+                }
 
                 <!-- Mnemonic -->
                 @if (currentCard.mnemonic) {
@@ -169,6 +198,7 @@ export class ReviewComponent implements OnInit {
   deck = signal<VocabularyEntry[]>([]);
   currentIndex = signal(0);
   isRevealed = signal(false);
+  showPosInfo = signal(false);
   sessionStats = signal<SessionStats>({ forgot: 0, hard: 0, easy: 0 });
   isLoading = signal(true);
   isComplete = signal(false);
@@ -189,6 +219,28 @@ export class ReviewComponent implements OnInit {
 
   reveal(): void {
     this.isRevealed.set(true);
+    this.showPosInfo.set(false);
+  }
+
+  togglePosInfo(): void {
+    this.showPosInfo.set(!this.showPosInfo());
+  }
+
+  getPosDescription(pos: string): string {
+    const map: Record<string, string> = {
+      noun:        'คำนาม — ใช้เรียกชื่อคน สิ่งของ สถานที่ หรือแนวคิด เช่น "dog", "city", "freedom"',
+      verb:        'คำกริยา — แสดงการกระทำหรือสภาวะ เช่น "run", "think", "become"',
+      adjective:   'คำคุณศัพท์ — ขยายคำนาม บอกลักษณะหรือคุณสมบัติ เช่น "happy", "large", "red"',
+      adverb:      'คำวิเศษณ์ — ขยายกริยา คุณศัพท์ หรือวิเศษณ์อื่น บอกวิธี เวลา หรือระดับ เช่น "quickly", "very"',
+      pronoun:     'สรรพนาม — ใช้แทนคำนาม เช่น "he", "they", "it"',
+      preposition: 'คำบุพบท — แสดงความสัมพันธ์ระหว่างคำ เช่น "in", "on", "at", "by"',
+      conjunction: 'คำสันธาน — เชื่อมประโยคหรือวลี เช่น "and", "but", "because"',
+      interjection:'คำอุทาน — แสดงอารมณ์หรือความรู้สึก เช่น "wow!", "ouch!", "hey!"',
+      determiner:  'คำกำหนดนาม — ระบุหรือจำกัดคำนาม เช่น "the", "a", "this", "some"',
+      phrase:      'วลี — กลุ่มคำที่ทำหน้าที่ร่วมกันแต่ไม่ใช่ประโยคสมบูรณ์',
+    };
+    const key = pos.toLowerCase().trim();
+    return map[key] ?? `${pos} — ดูบริบทในประโยคตัวอย่างเพื่อทำความเข้าใจการใช้งาน`;
   }
 
   async rate(rating: Rating): Promise<void> {
@@ -225,6 +277,7 @@ export class ReviewComponent implements OnInit {
     } else {
       this.currentIndex.set(this.currentIndex() + 1);
       this.isRevealed.set(false);
+      this.showPosInfo.set(false);
     }
   }
 }

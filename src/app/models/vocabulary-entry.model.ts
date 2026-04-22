@@ -4,6 +4,7 @@ export interface VocabularyEntry {
   id: string; // UUID v4
   word: string; // unique, lowercase-trimmed
   translation: string;
+  pos?: string; // part of speech
   originalSentence?: string;
   notes?: string;
   exampleSentences: string[];
@@ -51,6 +52,7 @@ export interface AIEnrichmentRequest {
 }
 
 export interface AIEnrichmentResult {
+  pos: string;
   translation: string;
   synonyms: string[];
   antonyms: string[];

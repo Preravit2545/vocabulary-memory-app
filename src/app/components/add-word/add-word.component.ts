@@ -90,6 +90,21 @@ import { AIEnrichmentResult } from '../../models/vocabulary-entry.model';
         <div class="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
           <h3 class="font-semibold text-gray-700">AI Enrichment</h3>
 
+          <!-- Part of Speech -->
+          @if (pos()) {
+            <div>
+              <label class="block text-sm font-medium mb-1" for="pos-input">Part of Speech</label>
+              <input
+                id="pos-input"
+                type="text"
+                class="w-full border border-gray-300 rounded px-3 py-2 min-h-[44px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                placeholder="noun, verb, adjective..."
+                [ngModel]="pos()"
+                (ngModelChange)="pos.set($event)"
+              />
+            </div>
+          }
+
           <!-- Translation -->
           <div>
             <label class="block text-sm font-medium mb-1" for="translation-input">Translation</label>
@@ -199,6 +214,7 @@ export class AddWordComponent {
   isSaving = signal(false);
 
   // Editable enrichment fields
+  pos = signal('');
   translation = signal('');
   synonyms = signal<string[]>([]);
   antonyms = signal<string[]>([]);
@@ -216,6 +232,7 @@ export class AddWordComponent {
       });
 
       this.enrichment.set(result);
+      this.pos.set(result.pos);
       this.translation.set(result.translation);
       this.synonyms.set(result.synonyms);
       this.antonyms.set(result.antonyms);
@@ -252,6 +269,7 @@ export class AddWordComponent {
       await this.vocabStore.addEntry({
         word: wordValue,
         translation: this.translation(),
+        pos: this.pos() || undefined,
         originalSentence: this.originalSentence().trim() || undefined,
         notes: this.notes().trim() || undefined,
         exampleSentences: this.exampleSentences(),
@@ -285,6 +303,7 @@ export class AddWordComponent {
     this.error.set(null);
     this.duplicateWarning.set(false);
     this.isSaving.set(false);
+    this.pos.set('');
     this.translation.set('');
     this.synonyms.set([]);
     this.antonyms.set([]);

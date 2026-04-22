@@ -95,6 +95,18 @@ import { filterBySearch, filterByStatus } from '../../utils/filters';
                 </div>
 
                 <div>
+                  <label class="block text-sm font-medium mb-1" [for]="'edit-pos-' + entry.id">Part of Speech</label>
+                  <input
+                    [id]="'edit-pos-' + entry.id"
+                    type="text"
+                    class="w-full border border-gray-300 rounded px-3 py-2 min-h-[44px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    placeholder="noun, verb, adjective..."
+                    [ngModel]="editPos()"
+                    (ngModelChange)="editPos.set($event)"
+                  />
+                </div>
+
+                <div>
                   <label class="block text-sm font-medium mb-1" [for]="'edit-notes-' + entry.id">Notes</label>
                   <textarea
                     [id]="'edit-notes-' + entry.id"
@@ -163,6 +175,9 @@ import { filterBySearch, filterByStatus } from '../../utils/filters';
                 <div class="flex items-start justify-between gap-2">
                   <div class="flex-1 min-w-0">
                     <p class="font-semibold text-gray-900 truncate">{{ entry.word }}</p>
+                    @if (entry.pos) {
+                      <p class="text-xs text-purple-500 font-medium">{{ entry.pos }}</p>
+                    }
                     <p class="text-gray-600 text-sm truncate">{{ entry.translation }}</p>
                     <div class="flex gap-3 mt-1 text-xs text-gray-400">
                       <span>Interval: {{ entry.interval }}d</span>
@@ -214,6 +229,7 @@ export class DashboardComponent implements OnDestroy {
   // Edit form signals
   editWord = signal('');
   editTranslation = signal('');
+  editPos = signal('');
   editNotes = signal('');
   editMnemonic = signal('');
 
@@ -247,6 +263,7 @@ export class DashboardComponent implements OnDestroy {
     this.editingEntry.set(entry);
     this.editWord.set(entry.word);
     this.editTranslation.set(entry.translation);
+    this.editPos.set(entry.pos ?? '');
     this.editNotes.set(entry.notes ?? '');
     this.editMnemonic.set(entry.mnemonic ?? '');
   }
@@ -257,6 +274,7 @@ export class DashboardComponent implements OnDestroy {
     this.vocabStore.updateEntry(entry.id, {
       word: this.editWord().trim().toLowerCase(),
       translation: this.editTranslation().trim(),
+      pos: this.editPos().trim() || undefined,
       notes: this.editNotes().trim() || undefined,
       mnemonic: this.editMnemonic().trim() || undefined,
     });

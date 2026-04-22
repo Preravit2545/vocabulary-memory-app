@@ -54,16 +54,26 @@ export class AiService {
       ? this.combineSignals(signal, controller.signal)
       : controller.signal;
 
-    const prompt = `Given the word "${req.word}" found in this sentence: "${req.originalSentence}"
+const prompt = `Act as an expert English-Thai linguist. Given the word "${req.word}" found in the context of this sentence: "${req.originalSentence}"
 
-Please provide:
-1. Translation (Thai only, no English, no parentheses): <translation>
-2. Synonyms (2-3 words, format each as "ENGLISH_WORD (ภาษาไทย)" where ENGLISH_WORD must be in English): <synonym1>, <synonym2>, ...
-3. Antonyms (1-2 words, format each as "ENGLISH_WORD (ภาษาไทย)" where ENGLISH_WORD must be in English, or "none" if not applicable): <antonym1>, ...
-4. Mnemonic (a short memorable story or technique in Thai to help remember this word): <mnemonic in Thai>
-5. Example sentences (2 natural sentences using the word): <sentence1> / <sentence2>
+Please provide the following details:
 
-Return as JSON: { "translation": "", "synonyms": [], "antonyms": [], "mnemonic": "", "exampleSentences": [] }`;
+1. Part of Speech ("pos"): The part of speech of the word based on the context (e.g., noun, verb, adjective).
+2. Translation ("translation"): Thai translation only. Provide up to 3 meanings maximum, separated by commas. Keep it short and concise. (No English, no parentheses).
+3. Synonyms ("synonyms"): 2-3 words. Format each strictly as "ENGLISH_WORD (คำแปลภาษาไทย)".
+4. Antonyms ("antonyms"): 1-2 words. Format each strictly as "ENGLISH_WORD (คำแปลภาษาไทย)", or use ["none"] if not applicable.
+5. Mnemonic ("mnemonic"): A short, creative, and easy-to-understand memory trick in Thai. It MUST start with the Thai pronunciation in brackets. (Example: "[เพอ-เวิร์ท] - นึกถึงคนแปลกประหลาดที่ชอบทำตัวเพี้ยนๆ...")
+6. Example Sentences ("exampleSentences"): 2 natural, everyday ENGLISH sentences using the word. Each sentence MUST be followed immediately by its Thai translation in parentheses. Example format: "English sentence. (คำแปลภาษาไทย)"
+
+Return ONLY valid JSON matching exactly this structure without any markdown blocks or extra text:
+{
+  "pos": "",
+  "translation": "",
+  "synonyms": [],
+  "antonyms": [],
+  "mnemonic": "",
+  "exampleSentences": []
+}`;
 
     try {
       const content = await this.callDashScope(prompt, combinedSignal);
@@ -76,6 +86,7 @@ Return as JSON: { "translation": "", "synonyms": [], "antonyms": [], "mnemonic":
       const parsed = JSON.parse(jsonMatch[0]);
 
       return {
+        pos: parsed.pos ?? '',
         translation: parsed.translation ?? '',
         synonyms: Array.isArray(parsed.synonyms) ? parsed.synonyms : [],
         antonyms: Array.isArray(parsed.antonyms) ? parsed.antonyms : [],
@@ -88,6 +99,7 @@ Return as JSON: { "translation": "", "synonyms": [], "antonyms": [], "mnemonic":
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
         return {
+          pos: '',
           translation: '',
           synonyms: [],
           antonyms: [],
@@ -97,6 +109,7 @@ Return as JSON: { "translation": "", "synonyms": [], "antonyms": [], "mnemonic":
         };
       }
       return {
+        pos: '',
         translation: '',
         synonyms: [],
         antonyms: [],
