@@ -59,17 +59,17 @@ import { shuffleDeck } from '../../utils/shuffle';
 
     <!-- Review state -->
     @if (!isLoading() && !isComplete() && deck().length > 0 && currentCard) {
-      <div class="flex flex-col min-h-screen px-4 pt-6 pb-24">
+      <div class="flex flex-col h-screen px-4 pt-6 pb-24">
 
         <!-- Progress indicator -->
-        <div class="text-center text-sm text-gray-500 mb-4">
+        <div class="text-center text-sm text-gray-500 mb-4 shrink-0">
           Card {{ currentIndex() + 1 }} of {{ deck().length }}
         </div>
 
-        <!-- Card area (upper half) -->
-        <div class="flex-1 flex flex-col items-center justify-center">
+        <!-- Card area — scrollable -->
+        <div class="flex-1 overflow-y-auto flex flex-col items-center min-h-0">
           <!-- Word (front) -->
-          <div class="w-full max-w-md bg-white rounded-2xl shadow-md p-8 text-center">
+          <div class="w-full max-w-md bg-white rounded-2xl shadow-md p-8 text-center mb-4">
             <p class="text-4xl font-bold text-gray-900 break-words">{{ currentCard.word }}</p>
 
             <!-- Revealed content -->
@@ -142,8 +142,8 @@ import { shuffleDeck } from '../../utils/shuffle';
           </div>
         </div>
 
-        <!-- Lower half: action buttons -->
-        <div class="mt-6 space-y-3 max-w-md mx-auto w-full">
+        <!-- Action buttons — fixed at bottom -->
+        <div class="shrink-0 mt-3 space-y-3 max-w-md mx-auto w-full">
           @if (!isRevealed()) {
             <!-- Reveal button -->
             <button
