@@ -13,10 +13,26 @@ export function filterBySearch(entries: VocabularyEntry[], term: string): Vocabu
 }
 
 /**
+ * Hard Words predicate: depends ONLY on easeFactor — NOT on interval or nextReviewDate.
+ */
+export const isHardWord = (entry: VocabularyEntry): boolean => entry.easeFactor < 1.8;
+
+/**
+ * Mastered predicate: interval >= 21 days.
+ */
+export const isMastered = (entry: VocabularyEntry): boolean => entry.interval >= 21;
+
+/**
+ * Due Today predicate: nextReviewDate <= today (YYYY-MM-DD).
+ */
+export const isDueToday = (entry: VocabularyEntry, today: string): boolean =>
+  entry.nextReviewDate <= today;
+
+/**
  * Filters entries by status:
  * - 'all'       → all entries
  * - 'due-today' → nextReviewDate <= today (YYYY-MM-DD)
- * - 'hard'      → easeFactor < 1.8
+ * - 'hard'      → easeFactor < 1.8 (only — not interval or nextReviewDate)
  * - 'mastered'  → interval >= 21
  */
 export function filterByStatus(entries: VocabularyEntry[], status: FilterStatus): VocabularyEntry[] {
@@ -24,13 +40,13 @@ export function filterByStatus(entries: VocabularyEntry[], status: FilterStatus)
 
   if (status === 'due-today') {
     const today = new Date().toISOString().slice(0, 10);
-    return entries.filter((e) => e.nextReviewDate <= today);
+    return entries.filter((e) => isDueToday(e, today));
   }
 
   if (status === 'hard') {
-    return entries.filter((e) => e.easeFactor < 1.8);
+    return entries.filter(isHardWord);
   }
 
   // 'mastered'
-  return entries.filter((e) => e.interval >= 21);
+  return entries.filter(isMastered);
 }

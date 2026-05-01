@@ -49,6 +49,7 @@ describe('AddWordComponent', () => {
     mockVocabStore = {
       findByWord: vi.fn().mockResolvedValue(undefined),
       addEntry: vi.fn().mockResolvedValue(undefined),
+      findBySynonymOverlap: vi.fn().mockResolvedValue([]),
       entries: signal([]) as any,
     };
 
@@ -60,6 +61,7 @@ describe('AddWordComponent', () => {
         mnemonic: '',
         exampleSentences: [],
       } satisfies AIEnrichmentResult),
+      regenerateMnemonic: vi.fn().mockResolvedValue({ mnemonic: '' }),
     };
 
     injector = createEnvironmentInjector([
@@ -85,7 +87,7 @@ describe('AddWordComponent', () => {
     component.word.set('hello');
     await component.saveEntry();
 
-    expect(component.duplicateWarning()).toBe(true);
+    expect(component.duplicateEntry()).not.toBeNull();
     // addEntry should NOT have been called
     expect(mockVocabStore.addEntry).not.toHaveBeenCalled();
   });
@@ -177,5 +179,131 @@ describe('AddWordComponent', () => {
     expect(mockVocabStore.addEntry).toHaveBeenCalledOnce();
     const callArg = (mockVocabStore.addEntry as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(callArg.word).toBe('ephemeral');
+  });
+
+  // ── 5. Regenerate mnemonic — success ────────────────────────────────────────
+
+  /**
+   * Validates: Requirement 14.6
+   * When the user clicks "Regenerate Mnemonic", AiService.regenerateMnemonic()
+   * should be called with the current word and translation, and the mnemonic
+   * field should be updated with the returned value.
+   */
+  it('calls regenerateMnemonic and updates mnemonic field on success', async () => {
+    mockAiService.regenerateMnemonic = vi.fn().mockResolvedValue({
+      mnemonic: 'ริ-ลัค-เทิ่นท์ — นึกถึงคนที่ไม่อยากทำอะไร',
+    });
+
+    component.word.set('reluctant');
+    component.translation.set('ไม่เต็มใจ');
+    // Set enrichment so the regenerate button is visible (enrichment !== null)
+    component.enrichment.set({
+      translation: 'ไม่เต็มใจ',
+      synonyms: [],
+      antonyms: [],
+      mnemonic: 'old mnemonic',
+      exampleSentences: [],
+    });
+
+    await component.regenerateMnemonic();
+
+    expect(mockAiService.regenerateMnemonic).toHaveBeenCalledWith('reluctant', 'ไม่เต็มใจ');
+    expect(component.mnemonic()).toBe('ริ-ลัค-เทิ่นท์ — นึกถึงคนที่ไม่อยากทำอะไร');
+    expect(component.isRegeneratingMnemonic()).toBe(false);
+  });
+
+  // ── 6. Regenerate mnemonic — error shows error message ──────────────────────
+
+  /**
+   * Validates: Requirement 14.6
+   * When AiService.regenerateMnemonic() throws, the component should display
+   * an error message (via the error signal) and not crash.
+   */
+  it('shows error message when regenerateMnemonic fails', async () => {
+    mockAiService.regenerateMnemonic = vi.fn().mockRejectedValue(
+      new Error('Network error')
+    );
+
+    component.word.set('ephemeral');
+    component.translation.set('ชั่วคราว');
+    component.enrichment.set({
+      translation: 'ชั่วคราว',
+      synonyms: [],
+      antonyms: [],
+      mnemonic: 'existing mnemonic',
+      exampleSentences: [],
+    });
+    component.mnemonic.set('existing mnemonic');
+
+    await component.regenerateMnemonic();
+
+    expect(component.error()).toBe('Network error');
+    // mnemonic should remain unchanged on failure
+    expect(component.mnemonic()).toBe('existing mnemonic');
+    expect(component.isRegeneratingMnemonic()).toBe(false);
+  });
+
+  // ── 7. Regenerate mnemonic — placeholder when AI returns empty ───────────────
+
+  /**
+   * Validates: Requirement 14.5
+   * When AiService.regenerateMnemonic() returns an empty mnemonic string,
+   * the component should display the placeholder text encouraging the user
+   * to write their own mnemonic.
+   */
+  it('shows placeholder when AI returns empty mnemonic on regenerate', async () => {
+    mockAiService.regenerateMnemonic = vi.fn().mockResolvedValue({ mnemonic: '' });
+
+    component.word.set('serendipity');
+    component.translation.set('โชคดีที่ไม่คาดฝัน');
+    component.enrichment.set({
+      translation: 'โชคดีที่ไม่คาดฝัน',
+      synonyms: [],
+      antonyms: [],
+      mnemonic: '',
+      exampleSentences: [],
+    });
+
+    await component.regenerateMnemonic();
+
+    expect(component.mnemonic()).toBe('เขียน mnemonic ของคุณเองที่นี่');
+    expect(component.isRegeneratingMnemonic()).toBe(false);
+  });
+
+  // ── 8. isRegeneratingMnemonic is true during regeneration ───────────────────
+
+  /**
+   * Validates: Requirement 14.6
+   * The isRegeneratingMnemonic signal should be true while the regeneration
+   * is in progress and false after it completes.
+   */
+  it('sets isRegeneratingMnemonic to true during regeneration and false after', async () => {
+    let resolveRegenerate!: (value: { mnemonic: string }) => void;
+    const pendingPromise = new Promise<{ mnemonic: string }>((resolve) => {
+      resolveRegenerate = resolve;
+    });
+
+    mockAiService.regenerateMnemonic = vi.fn().mockReturnValue(pendingPromise);
+
+    component.word.set('test');
+    component.translation.set('ทดสอบ');
+    component.enrichment.set({
+      translation: 'ทดสอบ',
+      synonyms: [],
+      antonyms: [],
+      mnemonic: '',
+      exampleSentences: [],
+    });
+
+    const regeneratePromise = component.regenerateMnemonic();
+
+    // Should be true while awaiting
+    expect(component.isRegeneratingMnemonic()).toBe(true);
+
+    resolveRegenerate({ mnemonic: 'new mnemonic' });
+    await regeneratePromise;
+
+    // Should be false after completion
+    expect(component.isRegeneratingMnemonic()).toBe(false);
   });
 });

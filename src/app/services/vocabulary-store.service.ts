@@ -48,8 +48,20 @@ export class VocabularyStoreService {
     return db.vocabulary.filter((e) => e.nextReviewDate <= today).toArray();
   }
 
-  async findByWord(word: string): Promise<VocabularyEntry | undefined> {
+  async findByWord(word: string): Promise<VocabularyEntry | null> {
     const lower = word.toLowerCase();
-    return db.vocabulary.filter((e) => e.word.toLowerCase() === lower).first();
+    const result = await db.vocabulary.filter((e) => e.word.toLowerCase() === lower).first();
+    return result ?? null;
+  }
+
+  async findBySynonymOverlap(synonyms: string[]): Promise<VocabularyEntry[]> {
+    if (synonyms.length === 0) return [];
+    const lowerSynonyms = synonyms.map((s) => s.toLowerCase());
+    const all = await db.vocabulary.toArray();
+    return all.filter((entry) => {
+      const entryWordLower = entry.word.toLowerCase();
+      if (lowerSynonyms.includes(entryWordLower)) return true;
+      return entry.synonyms.some((s) => lowerSynonyms.includes(s.toLowerCase()));
+    });
   }
 }

@@ -92,3 +92,15 @@ export interface SessionStats {
 }
 
 export type FilterStatus = 'all' | 'due-today' | 'hard' | 'mastered';
+
+export interface UndoState {
+  entryId: string;
+  previousSrsSnapshot: {
+    interval: number;
+    easeFactor: number;
+    nextReviewDate: string;
+    reviewCount: number;
+  };
+  deckIndexBeforeRating: number;
+  ratingApplied: Rating;
+}

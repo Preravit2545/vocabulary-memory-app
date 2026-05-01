@@ -146,6 +146,7 @@ describe('AI Enrichment — Property 17: Partial Enrichment Graceful Display', (
       const mockVocabStore: Partial<VocabularyStoreService> = {
         findByWord: () => Promise.resolve(undefined),
         addEntry: () => Promise.resolve(undefined as any),
+        findBySynonymOverlap: () => Promise.resolve([]),
       };
 
       const mockAiService: Partial<AiService> = {

@@ -1,15 +1,19 @@
-import { Component, inject, signal, ViewEncapsulation } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy, ViewEncapsulation } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, switchMap } from 'rxjs/operators';
+import { from } from 'rxjs';
 import { AiService } from '../../services/ai.service';
 import { VocabularyStoreService } from '../../services/vocabulary-store.service';
-import { AIEnrichmentResult } from '../../models/vocabulary-entry.model';
+import { AIEnrichmentResult, VocabularyEntry } from '../../models/vocabulary-entry.model';
 
 @Component({
   encapsulation: ViewEncapsulation.None,
   selector: 'app-add-word',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="max-w-lg mx-auto p-4 space-y-4">
       <h2 class="text-xl font-bold">Add New Word</h2>
@@ -22,9 +26,32 @@ import { AIEnrichmentResult } from '../../models/vocabulary-entry.model';
       }
 
       <!-- Duplicate warning -->
-      @if (duplicateWarning()) {
-        <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded" role="alert">
-          This word already exists in your collection.
+      @if (duplicateEntry()) {
+        <div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded flex items-center justify-between gap-3" role="alert">
+          <span>
+            "<strong>{{ duplicateEntry()!.word }}</strong>" already exists in your collection.
+          </span>
+          <a
+            routerLink="/dashboard"
+            class="shrink-0 underline font-medium text-yellow-900 hover:text-yellow-700"
+          >View in Dashboard</a>
+        </div>
+      }
+
+      <!-- Similar words notice (Req 9) -->
+      @if (similarEntries().length > 0) {
+        <div class="bg-blue-50 border border-blue-300 text-blue-800 px-4 py-3 rounded space-y-1" role="status">
+          <p class="font-medium">Similar words already in your collection:</p>
+          <ul class="list-disc list-inside text-sm">
+            @for (entry of similarEntries(); track entry.id) {
+              <li>{{ entry.word }}</li>
+            }
+          </ul>
+          <p class="text-sm">
+            You can still save this word, or
+            <a routerLink="/dashboard" class="underline font-medium hover:text-blue-600">browse your collection</a>
+            to find a related entry.
+          </p>
         </div>
       }
 
@@ -37,7 +64,7 @@ import { AIEnrichmentResult } from '../../models/vocabulary-entry.model';
           class="w-full border border-gray-300 rounded px-3 py-2 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-400"
           placeholder="Enter vocabulary word"
           [ngModel]="word()"
-          (ngModelChange)="word.set($event); duplicateWarning.set(false)"
+          (input)="onWordInput($event)"
         />
       </div>
 
@@ -150,11 +177,29 @@ import { AIEnrichmentResult } from '../../models/vocabulary-entry.model';
             <textarea
               id="mnemonic-input"
               class="w-full border border-gray-300 rounded px-3 py-2 min-h-[44px] bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="Memory aid or story"
+              placeholder="เขียน mnemonic ของคุณเองที่นี่"
               rows="2"
               [ngModel]="mnemonic()"
               (ngModelChange)="mnemonic.set($event)"
             ></textarea>
+            @if (enrichment() !== null) {
+              <button
+                type="button"
+                class="mt-2 flex items-center justify-center gap-2 w-full border border-purple-400 text-purple-700 rounded px-4 min-h-[44px] font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-50 transition-colors"
+                [disabled]="isRegeneratingMnemonic()"
+                (click)="regenerateMnemonic()"
+              >
+                @if (isRegeneratingMnemonic()) {
+                  <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  <span>Regenerating...</span>
+                } @else {
+                  <span>🔄 Regenerate Mnemonic</span>
+                }
+              </button>
+            }
           </div>
 
           <!-- Example sentences -->
@@ -176,7 +221,7 @@ import { AIEnrichmentResult } from '../../models/vocabulary-entry.model';
       <div class="flex gap-3">
         <button
           type="button"
-          class="flex-1 bg-blue-600 text-white rounded px-4 min-h-[44px] font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+          class="flex-1 bg-primary text-white rounded px-4 min-h-[44px] font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-hover transition-colors"
           [disabled]="!word().trim() || isSaving()"
           (click)="saveEntry()"
         >
@@ -197,7 +242,7 @@ import { AIEnrichmentResult } from '../../models/vocabulary-entry.model';
     </div>
   `,
 })
-export class AddWordComponent {
+export class AddWordComponent implements OnInit, OnDestroy {
   private aiService = inject(AiService);
   private vocabStore = inject(VocabularyStoreService);
 
@@ -209,9 +254,17 @@ export class AddWordComponent {
   // Enrichment state
   enrichment = signal<AIEnrichmentResult | null>(null);
   isEnriching = signal(false);
+  isRegeneratingMnemonic = signal(false);
   error = signal<string | null>(null);
-  duplicateWarning = signal(false);
   isSaving = signal(false);
+
+  // Req 8: Proactive Duplicate Detection
+  duplicateEntry = signal<VocabularyEntry | null>(null);
+
+  // Req 9: Synonym Group Awareness
+  similarEntries = signal<VocabularyEntry[]>([]);
+  private wordInput$ = new Subject<string>();
+  private duplicateSub?: Subscription;
 
   // Editable enrichment fields
   pos = signal('');
@@ -220,6 +273,53 @@ export class AddWordComponent {
   antonyms = signal<string[]>([]);
   mnemonic = signal('');
   exampleSentences = signal<string[]>([]);
+
+  ngOnInit(): void {
+    this.duplicateSub = this.wordInput$.pipe(
+      debounceTime(200),
+      switchMap((term) => {
+        const trimmed = term.trim();
+        if (!trimmed) {
+          return from(Promise.resolve(null));
+        }
+        return from(this.vocabStore.findByWord(trimmed));
+      })
+    ).subscribe((result) => {
+      this.duplicateEntry.set(result);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.duplicateSub?.unsubscribe();
+  }
+
+  onWordInput(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.word.set(value);
+    this.wordInput$.next(value);
+    if (!value.trim()) {
+      this.duplicateEntry.set(null);
+    }
+  }
+
+  async regenerateMnemonic(): Promise<void> {
+    this.isRegeneratingMnemonic.set(true);
+    try {
+      const result = await this.aiService.regenerateMnemonic(
+        this.word().trim(),
+        this.translation(),
+      );
+      if (!result.mnemonic) {
+        this.mnemonic.set('เขียน mnemonic ของคุณเองที่นี่');
+      } else {
+        this.mnemonic.set(result.mnemonic);
+      }
+    } catch (err: any) {
+      this.error.set(err?.message ?? 'Failed to regenerate mnemonic');
+    } finally {
+      this.isRegeneratingMnemonic.set(false);
+    }
+  }
 
   async enrichWithAI(): Promise<void> {
     this.isEnriching.set(true);
@@ -242,6 +342,10 @@ export class AddWordComponent {
       if (result.partialError) {
         this.error.set(result.partialError);
       }
+
+      // Req 9: check for synonym overlap after enrichment
+      const similar = await this.vocabStore.findBySynonymOverlap(result.synonyms);
+      this.similarEntries.set(similar);
     } catch (err: any) {
       this.error.set(err?.message ?? 'AI enrichment failed');
     } finally {
@@ -253,14 +357,16 @@ export class AddWordComponent {
     const wordValue = this.word().trim().toLowerCase();
     if (!wordValue) return;
 
+    // Req 8.3: prevent save if duplicate still exists
+    if (this.duplicateEntry()) return;
+
     this.isSaving.set(true);
     this.error.set(null);
-    this.duplicateWarning.set(false);
 
     try {
       const existing = await this.vocabStore.findByWord(wordValue);
       if (existing) {
-        this.duplicateWarning.set(true);
+        this.duplicateEntry.set(existing);
         return;
       }
 
@@ -285,7 +391,8 @@ export class AddWordComponent {
       this.resetForm();
     } catch (err: any) {
       if (err?.message === 'DUPLICATE_WORD') {
-        this.duplicateWarning.set(true);
+        const dup = await this.vocabStore.findByWord(wordValue);
+        this.duplicateEntry.set(dup);
       } else {
         this.error.set(err?.message ?? 'Failed to save entry');
       }
@@ -301,7 +408,8 @@ export class AddWordComponent {
     this.enrichment.set(null);
     this.isEnriching.set(false);
     this.error.set(null);
-    this.duplicateWarning.set(false);
+    this.duplicateEntry.set(null);
+    this.similarEntries.set([]);
     this.isSaving.set(false);
     this.pos.set('');
     this.translation.set('');

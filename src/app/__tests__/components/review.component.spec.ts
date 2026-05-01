@@ -192,4 +192,109 @@ describe('ReviewComponent', () => {
     expect(component.isRevealed()).toBe(false);
     expect(component.currentIndex()).toBe(1);
   });
+
+  // ── Undo behavior ─────────────────────────────────────────────────────────
+
+  /**
+   * Validates: Requirements 10.1, 10.5
+   * Before any rating is submitted, undoState should be null (Undo button hidden).
+   */
+  it('undo button is hidden before first rating (undoState is null)', async () => {
+    const entry = makeEntry();
+    (mockVocabStore.getDueEntries as ReturnType<typeof vi.fn>).mockResolvedValue([entry]);
+
+    await component.loadDeck();
+
+    expect(component.undoState()).toBeNull();
+  });
+
+  /**
+   * Validates: Requirements 10.1, 10.3
+   * After submitting a rating, undoState should be non-null (Undo button visible).
+   */
+  it('undo button is visible after rating (undoState is non-null)', async () => {
+    const entries = [makeEntry({ id: 'e1' }), makeEntry({ id: 'e2' })];
+    (mockVocabStore.getDueEntries as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
+
+    await component.loadDeck();
+
+    expect(component.undoState()).toBeNull();
+
+    await component.rate('easy');
+
+    expect(component.undoState()).not.toBeNull();
+  });
+
+  /**
+   * Validates: Requirements 10.3, 10.4
+   * After tapping Undo, undoState should be cleared (Undo button hidden again).
+   */
+  it('undo button is hidden after undo (undoState cleared)', async () => {
+    const entries = [makeEntry({ id: 'e1' }), makeEntry({ id: 'e2' })];
+    (mockVocabStore.getDueEntries as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
+
+    await component.loadDeck();
+
+    await component.rate('hard');
+    expect(component.undoState()).not.toBeNull();
+
+    await component.undo();
+
+    expect(component.undoState()).toBeNull();
+  });
+
+  /**
+   * Validates: Requirements 10.2, 10.4
+   * After undo, the SRS state of the entry should be reverted to its pre-rating values.
+   */
+  it('SRS state is correctly reverted after undo', async () => {
+    const originalInterval = 5;
+    const originalEaseFactor = 2.3;
+    const originalNextReviewDate = '2024-01-10';
+    const originalReviewCount = 3;
+
+    const entry = makeEntry({
+      id: 'e1',
+      interval: originalInterval,
+      easeFactor: originalEaseFactor,
+      nextReviewDate: originalNextReviewDate,
+      reviewCount: originalReviewCount,
+    });
+    const entries = [entry, makeEntry({ id: 'e2' })];
+
+    (mockVocabStore.getDueEntries as ReturnType<typeof vi.fn>).mockResolvedValue(entries);
+
+    await component.loadDeck();
+
+    await component.rate('forgot');
+
+    // Verify undoState captured the original SRS snapshot
+    const undoState = component.undoState();
+    expect(undoState).not.toBeNull();
+    expect(undoState!.previousSrsSnapshot.interval).toBe(originalInterval);
+    expect(undoState!.previousSrsSnapshot.easeFactor).toBe(originalEaseFactor);
+    expect(undoState!.previousSrsSnapshot.nextReviewDate).toBe(originalNextReviewDate);
+    expect(undoState!.previousSrsSnapshot.reviewCount).toBe(originalReviewCount);
+
+    await component.undo();
+
+    // After undo, the deck entry should have the original SRS values restored
+    const revertedCard = component.deck()[0];
+    expect(revertedCard.interval).toBe(originalInterval);
+    expect(revertedCard.easeFactor).toBe(originalEaseFactor);
+    expect(revertedCard.nextReviewDate).toBe(originalNextReviewDate);
+    expect(revertedCard.reviewCount).toBe(originalReviewCount);
+
+    // updateEntry should have been called with the original snapshot to persist the revert
+    expect(mockVocabStore.updateEntry).toHaveBeenLastCalledWith('e1', {
+      interval: originalInterval,
+      easeFactor: originalEaseFactor,
+      nextReviewDate: originalNextReviewDate,
+      reviewCount: originalReviewCount,
+    });
+
+    // Component should return to the rated card
+    expect(component.currentIndex()).toBe(0);
+    expect(component.isRevealed()).toBe(true);
+  });
 });

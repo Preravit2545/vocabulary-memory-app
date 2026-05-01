@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { VocabularyStoreService } from '../../services/vocabulary-store.service';
 import { SrsEngineService } from '../../services/srs-engine.service';
 import { db } from '../../db/vocab-memory-db';
-import { VocabularyEntry, Rating, SessionStats } from '../../models/vocabulary-entry.model';
+import { VocabularyEntry, Rating, SessionStats, UndoState } from '../../models/vocabulary-entry.model';
 import { shuffleDeck } from '../../utils/shuffle';
 
 @Component({
@@ -40,17 +40,17 @@ import { shuffleDeck } from '../../utils/shuffle';
         <div class="flex gap-6 mt-4">
           <div class="flex flex-col items-center">
             <span class="text-3xl">🔴</span>
-            <span class="text-xl font-bold text-red-500">{{ sessionStats().forgot }}</span>
+            <span class="text-xl font-bold text-rating-forgot">{{ sessionStats().forgot }}</span>
             <span class="text-sm text-gray-500">Forgot</span>
           </div>
           <div class="flex flex-col items-center">
             <span class="text-3xl">🟡</span>
-            <span class="text-xl font-bold text-yellow-500">{{ sessionStats().hard }}</span>
+            <span class="text-xl font-bold text-rating-hard">{{ sessionStats().hard }}</span>
             <span class="text-sm text-gray-500">Hard</span>
           </div>
           <div class="flex flex-col items-center">
             <span class="text-3xl">🟢</span>
-            <span class="text-xl font-bold text-green-500">{{ sessionStats().easy }}</span>
+            <span class="text-xl font-bold text-rating-easy">{{ sessionStats().easy }}</span>
             <span class="text-sm text-gray-500">Easy</span>
           </div>
         </div>
@@ -62,8 +62,15 @@ import { shuffleDeck } from '../../utils/shuffle';
       <div class="flex flex-col h-screen px-4 pt-6 pb-24">
 
         <!-- Progress indicator -->
-        <div class="text-center text-sm text-gray-500 mb-4 shrink-0">
-          Card {{ currentIndex() + 1 }} of {{ deck().length }}
+        <div class="mb-4 shrink-0">
+          <div class="text-center text-sm text-gray-500 mb-1">
+            Card {{ currentIndex() + 1 }} of {{ deck().length }}
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-primary h-2 rounded-full transition-all duration-300"
+                 [style.width.%]="(currentIndex() / deck().length) * 100">
+            </div>
+          </div>
         </div>
 
         <!-- Card area — scrollable -->
@@ -148,7 +155,7 @@ import { shuffleDeck } from '../../utils/shuffle';
             <!-- Reveal button -->
             <button
               type="button"
-              class="w-full bg-blue-600 text-white rounded-xl font-semibold text-lg min-h-[44px] py-3 hover:bg-blue-700 active:bg-blue-800 transition-colors"
+              class="w-full bg-primary text-white rounded-xl font-semibold text-lg min-h-[44px] py-3 hover:bg-primary-hover active:bg-primary-hover transition-colors"
               style="min-height: 44px; min-width: 44px;"
               (click)="reveal()"
             >
@@ -159,7 +166,7 @@ import { shuffleDeck } from '../../utils/shuffle';
             <div class="flex gap-3">
               <button
                 type="button"
-                class="flex-1 flex flex-col items-center justify-center bg-red-100 text-red-700 rounded-xl font-semibold min-h-[44px] py-3 hover:bg-red-200 active:bg-red-300 transition-colors"
+                class="flex-1 flex flex-col items-center justify-center bg-rating-forgot-light text-rating-forgot rounded-xl font-semibold min-h-[44px] py-3 hover:bg-rating-forgot-hover active:bg-rating-forgot-hover transition-colors duration-100 active:scale-95 transform"
                 style="min-height: 44px; min-width: 44px;"
                 (click)="rate('forgot')"
               >
@@ -168,7 +175,7 @@ import { shuffleDeck } from '../../utils/shuffle';
               </button>
               <button
                 type="button"
-                class="flex-1 flex flex-col items-center justify-center bg-yellow-100 text-yellow-700 rounded-xl font-semibold min-h-[44px] py-3 hover:bg-yellow-200 active:bg-yellow-300 transition-colors"
+                class="flex-1 flex flex-col items-center justify-center bg-rating-hard-light text-rating-hard rounded-xl font-semibold min-h-[44px] py-3 hover:bg-rating-hard-hover active:bg-rating-hard-hover transition-colors duration-100 active:scale-95 transform"
                 style="min-height: 44px; min-width: 44px;"
                 (click)="rate('hard')"
               >
@@ -177,7 +184,7 @@ import { shuffleDeck } from '../../utils/shuffle';
               </button>
               <button
                 type="button"
-                class="flex-1 flex flex-col items-center justify-center bg-green-100 text-green-700 rounded-xl font-semibold min-h-[44px] py-3 hover:bg-green-200 active:bg-green-300 transition-colors"
+                class="flex-1 flex flex-col items-center justify-center bg-rating-easy-light text-rating-easy rounded-xl font-semibold min-h-[44px] py-3 hover:bg-rating-easy-hover active:bg-rating-easy-hover transition-colors duration-100 active:scale-95 transform"
                 style="min-height: 44px; min-width: 44px;"
                 (click)="rate('easy')"
               >
@@ -185,6 +192,20 @@ import { shuffleDeck } from '../../utils/shuffle';
                 <span class="text-sm mt-1">Easy</span>
               </button>
             </div>
+          }
+
+          <!-- Undo button — shown only after a rating has been submitted -->
+          @if (undoState()) {
+            <button
+              type="button"
+              class="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-600 rounded-xl font-medium min-h-[44px] py-3 hover:bg-gray-200 active:bg-gray-300 transition-colors"
+              style="min-height: 44px; min-width: 44px;"
+              (click)="undo()"
+              aria-label="Undo last rating"
+            >
+              <span>↩</span>
+              <span class="text-sm">Undo Last Rating</span>
+            </button>
           }
         </div>
       </div>
@@ -202,6 +223,7 @@ export class ReviewComponent implements OnInit {
   sessionStats = signal<SessionStats>({ forgot: 0, hard: 0, easy: 0 });
   isLoading = signal(true);
   isComplete = signal(false);
+  undoState = signal<UndoState | null>(null);
 
   get currentCard(): VocabularyEntry | null {
     return this.deck()[this.currentIndex()] ?? null;
@@ -247,16 +269,34 @@ export class ReviewComponent implements OnInit {
     const card = this.currentCard;
     if (!card) return;
 
+    this.undoState.set({
+      entryId: card.id,
+      previousSrsSnapshot: {
+        interval: card.interval,
+        easeFactor: card.easeFactor,
+        nextReviewDate: card.nextReviewDate,
+        reviewCount: card.reviewCount,
+      },
+      deckIndexBeforeRating: this.currentIndex(),
+      ratingApplied: rating,
+    });
+
     const result = this.srsEngine.applyRating(card, rating);
 
     const nextReviewDate = result.nextReviewDate.toISOString().split('T')[0];
-
-    await this.vocabStore.updateEntry(card.id, {
+    const updatedSrs = {
       interval: result.newInterval,
       easeFactor: result.newEaseFactor,
       nextReviewDate,
       reviewCount: card.reviewCount + 1,
-    });
+    };
+
+    await this.vocabStore.updateEntry(card.id, updatedSrs);
+
+    // Update deck in-memory to reflect new SRS state
+    const updatedDeck = this.deck().slice();
+    updatedDeck[this.currentIndex()] = { ...card, ...updatedSrs };
+    this.deck.set(updatedDeck);
 
     // Update session stats
     const stats = this.sessionStats();
@@ -273,11 +313,41 @@ export class ReviewComponent implements OnInit {
         reviewedCount: this.deck().length,
         completedAt: new Date().toISOString(),
       });
+      this.undoState.set(null);
       this.isComplete.set(true);
     } else {
       this.currentIndex.set(this.currentIndex() + 1);
       this.isRevealed.set(false);
       this.showPosInfo.set(false);
     }
+  }
+
+  async undo(): Promise<void> {
+    const state = this.undoState();
+    if (!state) return;
+
+    // Revert SRS fields in storage
+    await this.vocabStore.updateEntry(state.entryId, state.previousSrsSnapshot);
+
+    // Revert deck in-memory
+    const updatedDeck = this.deck().slice();
+    updatedDeck[state.deckIndexBeforeRating] = {
+      ...updatedDeck[state.deckIndexBeforeRating],
+      ...state.previousSrsSnapshot,
+    };
+    this.deck.set(updatedDeck);
+
+    // Revert session stats
+    const stats = this.sessionStats();
+    const rating = state.ratingApplied;
+    this.sessionStats.set({ ...stats, [rating]: Math.max(0, stats[rating] - 1) });
+
+    // Return to the card that was rated
+    this.currentIndex.set(state.deckIndexBeforeRating);
+    this.isRevealed.set(true);
+    this.showPosInfo.set(false);
+
+    // Clear undo state
+    this.undoState.set(null);
   }
 }

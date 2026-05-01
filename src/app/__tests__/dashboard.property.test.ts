@@ -338,3 +338,96 @@ describe('Edit — Property 10: Edit Preserves SRS Data', () => {
     }
   );
 });
+
+// Feature: vocabulary-memory-app, Property 24: Hard Words Filter Correctness
+
+/**
+ * Validates: Requirements 13.1, 13.2, 13.4
+ *
+ * Property 24: Hard Words Filter Correctness
+ * For any collection of VocabularyEntry items with varying easeFactor, interval, and
+ * nextReviewDate values, the Hard Words filter SHALL return exactly those entries where
+ * easeFactor < 1.8, regardless of their interval or nextReviewDate values, and the
+ * displayed count SHALL equal the number of entries returned.
+ */
+
+// Arbitrary: a VocabularyEntry with independently varying easeFactor, interval, and nextReviewDate
+const hardWordsEntryArb = fc
+  .record({
+    id: fc.uuid(),
+    word: fc.string({ minLength: 1, maxLength: 20 }),
+    translation: fc.string({ minLength: 1, maxLength: 20 }),
+    // easeFactor: full valid range [1.3, 4.0]
+    easeFactor: fc.float({ min: Math.fround(1.3), max: Math.fround(4.0), noNaN: true }),
+    // interval: wide range including values >= 21 (mastered) and < 21
+    interval: fc.integer({ min: 1, max: 365 }),
+    // nextReviewDate: past, today, or future — should NOT affect hard filter
+    dayOffset: fc.integer({ min: -180, max: 180 }),
+  })
+  .map(
+    ({ id, word, translation, easeFactor, interval, dayOffset }): VocabularyEntry => {
+      const d = new Date();
+      d.setDate(d.getDate() + dayOffset);
+      return {
+        id,
+        word,
+        translation,
+        exampleSentences: [],
+        synonyms: [],
+        antonyms: [],
+        interval,
+        easeFactor,
+        nextReviewDate: d.toISOString().slice(0, 10),
+        reviewCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+  );
+
+const hardWordsEntriesArb = fc.array(hardWordsEntryArb, { minLength: 0, maxLength: 30 });
+
+describe('Hard Words Filter — Property 24: Hard Words Filter Correctness', () => {
+  it.prop([hardWordsEntriesArb], { numRuns: 100 })(
+    'filterByStatus(entries, "hard") returns exactly entries where easeFactor < 1.8',
+    (entries) => {
+      const results = filterByStatus(entries, 'hard');
+      const resultIds = new Set(results.map((e) => e.id));
+      const expectedIds = new Set(entries.filter((e) => e.easeFactor < 1.8).map((e) => e.id));
+      expect(resultIds).toEqual(expectedIds);
+    }
+  );
+
+  it.prop([hardWordsEntriesArb], { numRuns: 100 })(
+    'entries with high interval or future nextReviewDate but easeFactor < 1.8 ARE included',
+    (entries) => {
+      const results = filterByStatus(entries, 'hard');
+      const resultIds = new Set(results.map((e) => e.id));
+      // All entries with easeFactor < 1.8 must be present regardless of interval/nextReviewDate
+      for (const entry of entries) {
+        if (entry.easeFactor < 1.8) {
+          expect(resultIds.has(entry.id)).toBe(true);
+        }
+      }
+    }
+  );
+
+  it.prop([hardWordsEntriesArb], { numRuns: 100 })(
+    'entries with easeFactor >= 1.8 are NOT included regardless of interval or nextReviewDate',
+    (entries) => {
+      const results = filterByStatus(entries, 'hard');
+      for (const entry of results) {
+        expect(entry.easeFactor).toBeLessThan(1.8);
+      }
+    }
+  );
+
+  it.prop([hardWordsEntriesArb], { numRuns: 100 })(
+    'count of returned entries equals count of entries with easeFactor < 1.8',
+    (entries) => {
+      const results = filterByStatus(entries, 'hard');
+      const expectedCount = entries.filter((e) => e.easeFactor < 1.8).length;
+      expect(results.length).toBe(expectedCount);
+    }
+  );
+});

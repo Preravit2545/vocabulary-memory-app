@@ -36,7 +36,7 @@ import { filterBySearch, filterByStatus } from '../../utils/filters';
             [attr.aria-selected]="filterStatus() === tab.value"
             class="px-4 min-h-[44px] rounded font-medium transition-colors"
             [class]="filterStatus() === tab.value
-              ? 'bg-blue-600 text-white'
+              ? 'bg-primary text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
             (click)="filterStatus.set(tab.value)"
           >
@@ -65,11 +65,11 @@ import { filterBySearch, filterByStatus } from '../../utils/filters';
       <!-- Entry list -->
       <ul class="space-y-3" aria-label="Vocabulary entries">
         @for (entry of filteredEntries(); track entry.id) {
-          <li class="border border-gray-200 rounded-lg overflow-hidden">
+          <li class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
 
             <!-- Inline edit form -->
             @if (editingEntry()?.id === entry.id) {
-              <div class="p-4 space-y-3 bg-blue-50">
+              <div class="p-4 space-y-3 bg-blue-50 shadow-inner">
                 <h3 class="font-semibold text-blue-800">Edit Entry</h3>
 
                 <div>
@@ -131,7 +131,7 @@ import { filterBySearch, filterByStatus } from '../../utils/filters';
                 <div class="flex gap-2">
                   <button
                     type="button"
-                    class="flex-1 bg-blue-600 text-white rounded px-4 min-h-[44px] font-medium hover:bg-blue-700 transition-colors"
+                    class="flex-1 bg-primary text-white rounded px-4 min-h-[44px] font-medium hover:bg-primary-hover transition-colors"
                     (click)="saveEdit()"
                   >
                     Save

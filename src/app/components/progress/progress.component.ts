@@ -17,7 +17,7 @@ import { db } from '../../db/vocab-memory-db';
       <!-- Loading spinner -->
       @if (isLoading()) {
         <div class="flex justify-center items-center py-16" aria-label="Loading stats">
-          <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <div class="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         </div>
       }
 
@@ -35,19 +35,19 @@ import { db } from '../../db/vocab-memory-db';
 
           <!-- Total words -->
           <div class="bg-white border border-gray-200 rounded-2xl p-5 flex flex-col items-center shadow-sm">
-            <span class="text-4xl font-bold text-blue-600">{{ stats()!.totalWords }}</span>
+            <span class="text-4xl font-bold text-primary">{{ stats()!.totalWords }}</span>
             <span class="mt-1 text-sm text-gray-500 font-medium">Total Words</span>
           </div>
 
           <!-- Due today -->
           <div class="bg-white border border-gray-200 rounded-2xl p-5 flex flex-col items-center shadow-sm">
-            <span class="text-4xl font-bold text-yellow-500">{{ stats()!.dueToday }}</span>
+            <span class="text-4xl font-bold text-rating-hard">{{ stats()!.dueToday }}</span>
             <span class="mt-1 text-sm text-gray-500 font-medium">Due Today</span>
           </div>
 
           <!-- Mastered -->
           <div class="sm:col-span-2 bg-white border border-gray-200 rounded-2xl p-5 flex flex-col items-center shadow-sm">
-            <span class="text-4xl font-bold text-green-600">{{ stats()!.mastered }}</span>
+            <span class="text-4xl font-bold text-rating-easy">{{ stats()!.mastered }}</span>
             <span class="mt-1 text-sm text-gray-500 font-medium">Mastered (interval ≥ 21 days)</span>
           </div>
 

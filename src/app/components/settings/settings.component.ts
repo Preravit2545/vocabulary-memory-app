@@ -33,7 +33,7 @@ import { ImportResult } from '../../models/vocabulary-entry.model';
           />
           <button
             type="button"
-            class="px-5 min-h-[44px] bg-blue-600 text-white rounded font-medium hover:bg-blue-700 transition-colors"
+            class="px-5 min-h-[44px] bg-primary text-white rounded font-medium hover:bg-primary-hover transition-colors"
             (click)="saveApiKey()"
           >
             Save
@@ -73,8 +73,8 @@ import { ImportResult } from '../../models/vocabulary-entry.model';
               file:rounded file:border-0
               file:min-h-[44px]
               file:text-sm file:font-medium
-              file:bg-blue-50 file:text-blue-700
-              hover:file:bg-blue-100
+              file:bg-primary-light file:text-primary
+              hover:file:bg-primary-light
               cursor-pointer"
             (change)="onImportFile($event)"
           />

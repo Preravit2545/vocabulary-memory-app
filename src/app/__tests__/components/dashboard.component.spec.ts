@@ -241,4 +241,24 @@ describe('DashboardComponent', () => {
     expect(component.deleteConfirmId()).toBeNull();
     expect(mockVocabStore.deleteEntry).not.toHaveBeenCalled();
   });
+
+  // ── 5. Hard Words empty state ───────────────────────────────────────────────
+
+  /**
+   * Validates: Requirement 13.3
+   * When no entries have easeFactor < 1.8, the Hard Words filter returns an
+   * empty list — triggering the empty-state message in the template.
+   */
+  it('filteredEntries is empty when Hard Words filter is active and no entries have easeFactor < 1.8', () => {
+    const entries = [
+      makeEntry({ id: 'e1', easeFactor: 1.8 }),   // exactly 1.8 — not hard
+      makeEntry({ id: 'e2', easeFactor: 2.0 }),   // above threshold — not hard
+      makeEntry({ id: 'e3', easeFactor: 2.5 }),   // default — not hard
+    ];
+    (mockVocabStore.entries as any).set(entries);
+
+    component.filterStatus.set('hard');
+
+    expect(component.filteredEntries()).toHaveLength(0);
+  });
 });
