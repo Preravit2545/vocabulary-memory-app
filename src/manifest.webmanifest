@@ -1,22 +1,29 @@
 {
   "name": "Vocabulary Memory App",
-  "short_name": "VocabApp",
+  "short_name": "VocabMemory",
+  "description": "จดจำคำศัพท์ด้วย Spaced Repetition และ AI",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2563eb",
-  "description": "Personal vocabulary learning app with spaced repetition",
-  "lang": "th",
+  "theme_color": "#6366f1",
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
+      "src": "icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

@@ -27,6 +27,11 @@ vi.mock('../../db/vocab-memory-db', () => ({
   },
 }));
 
+// Mock shuffleDeck to return the array unchanged so tests are deterministic
+vi.mock('../../utils/shuffle', () => ({
+  shuffleDeck: <T>(arr: T[]): T[] => arr.slice(),
+}));
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function makeEntry(overrides: Partial<VocabularyEntry> = {}): VocabularyEntry {

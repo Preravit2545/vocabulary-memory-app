@@ -46,6 +46,18 @@ export class AiService {
     req: AIEnrichmentRequest,
     signal?: AbortSignal,
   ): Promise<AIEnrichmentResult> {
+    if (!navigator.onLine) {
+      return {
+        pos: '',
+        translation: '',
+        synonyms: [],
+        antonyms: [],
+        mnemonic: '',
+        exampleSentences: [],
+        partialError: 'ไม่มีการเชื่อมต่ออินเทอร์เน็ต',
+      };
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -146,6 +158,13 @@ Return as JSON: { "mnemonic": "" }`;
     req: AIGenerateRequest,
     signal?: AbortSignal,
   ): Promise<AIGenerateResult> {
+    if (!navigator.onLine) {
+      return {
+        sentences: [],
+        error: 'ไม่มีการเชื่อมต่ออินเทอร์เน็ต',
+      };
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 

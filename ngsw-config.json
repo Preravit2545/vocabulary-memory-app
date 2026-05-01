@@ -1,8 +1,9 @@
 {
+  "$schema": "./node_modules/@angular/service-worker/config/schema.json",
   "index": "/index.html",
   "assetGroups": [
     {
-      "name": "app",
+      "name": "app-shell",
       "installMode": "prefetch",
       "updateMode": "prefetch",
       "resources": {
@@ -11,7 +12,8 @@
           "/index.html",
           "/manifest.webmanifest",
           "/*.css",
-          "/*.js"
+          "/*.js",
+          "/icons/*.png"
         ]
       }
     },
@@ -21,8 +23,7 @@
       "updateMode": "prefetch",
       "resources": {
         "files": [
-          "/assets/**",
-          "/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"
+          "/assets/**"
         ]
       }
     }
@@ -36,9 +37,12 @@
       "cacheConfig": {
         "strategy": "freshness",
         "maxSize": 0,
-        "maxAge": "0u",
+        "maxAge": "0s",
         "timeout": "10s"
       }
     }
+  ],
+  "navigationUrls": [
+    "/**"
   ]
 }

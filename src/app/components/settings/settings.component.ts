@@ -1,8 +1,9 @@
-import { Component, inject, signal, ViewEncapsulation } from '@angular/core';
+import { Component, inject, OnInit, signal, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { VocabularyStoreService } from '../../services/vocabulary-store.service';
 import { ImportExportService } from '../../services/import-export.service';
+import { NotificationService } from '../../services/notification.service';
 import { ImportResult } from '../../models/vocabulary-entry.model';
 
 @Component({
@@ -13,6 +14,59 @@ import { ImportResult } from '../../models/vocabulary-entry.model';
   template: `
     <div class="max-w-2xl mx-auto p-4 space-y-8">
       <h2 class="text-xl font-bold">Settings</h2>
+
+      <!-- Notification Settings Section (Req 15) -->
+      <section class="space-y-3">
+        <h3 class="text-lg font-semibold text-gray-800">การแจ้งเตือน</h3>
+
+        @if (notifUnsupported()) {
+          <p class="text-sm text-gray-500">อุปกรณ์นี้ไม่รองรับการแจ้งเตือน</p>
+        } @else {
+          <!-- Toggle switch for daily reminders -->
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              [attr.aria-checked]="notifEnabled()"
+              aria-label="แจ้งเตือนรายวัน"
+              class="relative inline-flex items-center min-w-[52px] min-h-[44px] cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 rounded-full"
+              (click)="onToggleNotification()"
+            >
+              <span
+                class="w-12 h-6 rounded-full transition-colors duration-200"
+                [class.bg-blue-600]="notifEnabled()"
+                [class.bg-gray-300]="!notifEnabled()"
+              ></span>
+              <span
+                class="absolute left-1 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                [class.translate-x-6]="notifEnabled()"
+              ></span>
+            </button>
+            <span class="text-sm text-gray-700">แจ้งเตือนรายวัน</span>
+          </div>
+
+          <!-- Permission denied error -->
+          @if (notifPermission() === 'denied') {
+            <p class="text-sm text-red-600">
+              การแจ้งเตือนถูกปฏิเสธ กรุณาเปิดสิทธิ์ใน browser settings
+            </p>
+          }
+
+          <!-- Time picker — visible only when notifications are enabled -->
+          @if (notifEnabled()) {
+            <div class="flex items-center gap-3">
+              <label for="notif-time" class="text-sm text-gray-700">เวลาแจ้งเตือน</label>
+              <input
+                id="notif-time"
+                type="time"
+                class="border border-gray-300 rounded px-3 py-2 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-400"
+                [ngModel]="notifTimeValue()"
+                (ngModelChange)="onTimeChange($event)"
+              />
+            </div>
+          }
+        }
+      </section>
 
       <!-- API Key Section -->
       <section class="space-y-3">
@@ -120,14 +174,75 @@ import { ImportResult } from '../../models/vocabulary-entry.model';
     }
   `,
 })
-export class SettingsComponent {
+export class SettingsComponent implements OnInit {
   private vocabStore = inject(VocabularyStoreService);
   private importExport = inject(ImportExportService);
+  private notificationService = inject(NotificationService);
 
   apiKey = signal(localStorage.getItem('dashscope_api_key') ?? '');
   importResult = signal<ImportResult | null>(null);
   importError = signal<string | null>(null);
   toast = signal<string | null>(null);
+
+  // Notification settings signals (Req 15)
+  notifEnabled = signal(false);
+  notifHour = signal(20);
+  notifMinute = signal(0);
+  notifPermission = signal<NotificationPermission>('default');
+  notifUnsupported = signal(false);
+
+  /** Computed time string "HH:MM" for the time input binding. */
+  notifTimeValue = () => {
+    const h = String(this.notifHour()).padStart(2, '0');
+    const m = String(this.notifMinute()).padStart(2, '0');
+    return `${h}:${m}`;
+  };
+
+  ngOnInit(): void {
+    // Check Notification API support
+    if (!('Notification' in window)) {
+      this.notifUnsupported.set(true);
+      return;
+    }
+
+    // Load persisted settings and sync signals
+    this.notificationService.loadSettings();
+    this.notifEnabled.set(this.notificationService.isEnabled());
+    this.notifHour.set(this.notificationService.reminderHour());
+    this.notifMinute.set(this.notificationService.reminderMinute());
+    this.notifPermission.set(this.notificationService.permissionState());
+  }
+
+  async onToggleNotification(): Promise<void> {
+    if (this.notifEnabled()) {
+      // Disabling: cancel scheduled notifications and persist
+      this.notifEnabled.set(false);
+      await this.notificationService.cancelScheduledNotifications();
+      await this.notificationService.saveSettings(false, this.notifHour(), this.notifMinute());
+    } else {
+      // Enabling: request permission first
+      const permission = await this.notificationService.requestPermission();
+      this.notifPermission.set(permission);
+      if (permission === 'denied') {
+        // Keep toggle off, show error (notifPermission signal drives the message)
+        this.notifEnabled.set(false);
+      } else if (permission === 'granted') {
+        this.notifEnabled.set(true);
+        await this.notificationService.saveSettings(true, this.notifHour(), this.notifMinute());
+      }
+      // 'default' means the user dismissed the prompt — keep toggle off
+    }
+  }
+
+  async onTimeChange(timeValue: string): Promise<void> {
+    const [hourStr, minuteStr] = timeValue.split(':');
+    const hour = parseInt(hourStr, 10);
+    const minute = parseInt(minuteStr, 10);
+    if (isNaN(hour) || isNaN(minute)) return;
+    this.notifHour.set(hour);
+    this.notifMinute.set(minute);
+    await this.notificationService.saveSettings(this.notifEnabled(), hour, minute);
+  }
 
   saveApiKey(): void {
     localStorage.setItem('dashscope_api_key', this.apiKey());

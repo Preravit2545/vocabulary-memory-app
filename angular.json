@@ -48,7 +48,8 @@
                 "glob": "**/*",
                 "input": "public"
               },
-              "src/manifest.webmanifest"
+              "src/manifest.webmanifest",
+              "src/sw-notifications.js"
             ],
             "styles": [
               "src/styles.css"

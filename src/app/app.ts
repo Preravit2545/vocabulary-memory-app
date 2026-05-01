@@ -1,5 +1,16 @@
-import { Component, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit, ViewEncapsulation, signal, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
+import { filter } from 'rxjs/operators';
+import { NotificationService } from './services/notification.service';
+
+/** Minimal typing for the non-standard BeforeInstallPromptEvent. */
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+const INSTALL_PROMPT_DISMISSED_KEY = 'install_prompt_dismissed_at';
 
 @Component({
   encapsulation: ViewEncapsulation.None,
@@ -8,6 +19,47 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <div class="flex flex-col h-screen">
+      <!-- PWA install banner (Req 16.3, 16.4) -->
+      @if (showInstallBanner()) {
+        <div class="bg-blue-600 text-white px-4 py-3 flex items-center justify-between gap-2 z-50">
+          <span class="text-sm font-medium">เพิ่มแอปไปยังหน้าจอหลัก</span>
+          <div class="flex gap-2 shrink-0">
+            <button
+              (click)="onInstall()"
+              class="min-h-[44px] min-w-[44px] px-4 py-2 bg-white text-blue-600 text-sm font-semibold rounded-md hover:bg-blue-50 transition-colors"
+            >
+              ติดตั้ง
+            </button>
+            <button
+              (click)="onDismissInstall()"
+              class="min-h-[44px] min-w-[44px] px-4 py-2 bg-blue-700 text-white text-sm rounded-md hover:bg-blue-800 transition-colors"
+            >
+              ไม่ใช่ตอนนี้
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- PWA update banner (Req 16.6) -->
+      @if (showUpdateBanner()) {
+        <div class="bg-green-600 text-white px-4 py-3 flex items-center justify-between gap-2 z-50">
+          <span class="text-sm font-medium">มีเวอร์ชันใหม่พร้อมใช้งาน</span>
+          <button
+            (click)="onReload()"
+            class="min-h-[44px] min-w-[44px] px-4 py-2 bg-white text-green-600 text-sm font-semibold rounded-md hover:bg-green-50 transition-colors shrink-0"
+          >
+            โหลดใหม่
+          </button>
+        </div>
+      }
+
+      <!-- Offline indicator banner (Req 16.11) -->
+      @if (isOffline()) {
+        <div class="bg-amber-400 text-amber-900 px-4 py-2 text-center text-sm font-medium z-40" role="status" aria-live="polite">
+          ไม่มีการเชื่อมต่ออินเทอร์เน็ต — ฟีเจอร์ AI ไม่พร้อมใช้งาน
+        </div>
+      }
+
       <!-- Main content area -->
       <main class="flex-1 overflow-y-auto pb-16">
         <router-outlet />
@@ -63,4 +115,66 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
     </div>
   `,
 })
-export class App {}
+export class App implements OnInit {
+  // PWA install prompt (Req 16.3, 16.4)
+  showInstallBanner = signal(false);
+  private deferredPrompt: BeforeInstallPromptEvent | null = null;
+
+  // PWA update banner (Req 16.6)
+  showUpdateBanner = signal(false);
+  private readonly swUpdate = inject(SwUpdate, { optional: true });
+
+  // Offline indicator (Req 16.11)
+  isOffline = signal(!navigator.onLine);
+
+  private readonly notificationService = inject(NotificationService);
+
+  ngOnInit(): void {
+    // Track online/offline status
+    window.addEventListener('online', () => this.isOffline.set(false));
+    window.addEventListener('offline', () => this.isOffline.set(true));
+
+    window.addEventListener('beforeinstallprompt', (event: Event) => {
+      // Prevent the mini-infobar from appearing on mobile
+      event.preventDefault();
+      this.deferredPrompt = event as BeforeInstallPromptEvent;
+
+      // Check if the user previously dismissed the banner
+      const raw = localStorage.getItem(INSTALL_PROMPT_DISMISSED_KEY);
+      const dismissedAt = raw !== null ? Number(raw) : null;
+
+      if (this.notificationService.shouldShowInstallPrompt(dismissedAt, Date.now())) {
+        this.showInstallBanner.set(true);
+      }
+    });
+
+    // Subscribe to service worker version updates
+    if (this.swUpdate?.isEnabled) {
+      this.swUpdate.versionUpdates
+        .pipe(filter((evt): evt is VersionReadyEvent => evt.type === 'VERSION_READY'))
+        .subscribe(() => {
+          this.showUpdateBanner.set(true);
+        });
+    }
+  }
+
+  /** User tapped "ติดตั้ง" — trigger the native install prompt. */
+  async onInstall(): Promise<void> {
+    if (!this.deferredPrompt) return;
+    await this.deferredPrompt.prompt();
+    this.deferredPrompt = null;
+    this.showInstallBanner.set(false);
+  }
+
+  /** User tapped "ไม่ใช่ตอนนี้" — record dismissal time and hide banner. */
+  onDismissInstall(): void {
+    localStorage.setItem(INSTALL_PROMPT_DISMISSED_KEY, String(Date.now()));
+    this.showInstallBanner.set(false);
+  }
+
+  /** User tapped "โหลดใหม่" — activate the new SW version and reload. */
+  async onReload(): Promise<void> {
+    await this.swUpdate?.activateUpdate();
+    window.location.reload();
+  }
+}

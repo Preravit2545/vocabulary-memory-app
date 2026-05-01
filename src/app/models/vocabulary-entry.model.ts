@@ -93,6 +93,12 @@ export interface SessionStats {
 
 export type FilterStatus = 'all' | 'due-today' | 'hard' | 'mastered';
 
+export interface NotificationPayload {
+  title: string; // "ถึงเวลาทบทวนคำศัพท์แล้ว!"
+  body: string; // "N คำรอการทบทวน"
+  data: { url: '/review' };
+}
+
 export interface UndoState {
   entryId: string;
   previousSrsSnapshot: {
