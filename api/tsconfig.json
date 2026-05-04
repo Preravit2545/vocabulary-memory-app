@@ -5,9 +5,11 @@
     "moduleResolution": "node",
     "strict": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
+    "resolveJsonModule": true,
     "outDir": "./dist"
   },
-  "include": ["**/*.ts"],
+  "include": ["./**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
