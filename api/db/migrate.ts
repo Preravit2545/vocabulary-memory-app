@@ -1,4 +1,4 @@
-import { sql } from '../lib/db.ts';
+import { sql } from '../lib/db';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
