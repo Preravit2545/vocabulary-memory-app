@@ -6,3 +6,4 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   if (!session) return res.status(200).json(null);
   return res.json(session);
 }
+

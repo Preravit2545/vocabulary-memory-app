@@ -25,3 +25,4 @@ export async function runMigration(): Promise<void> {
 
 // Run if called directly (ESM equivalent of require.main === module)
 runMigration().catch(console.error);
+
