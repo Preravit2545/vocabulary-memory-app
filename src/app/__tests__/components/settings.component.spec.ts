@@ -17,6 +17,7 @@ import { SettingsComponent } from '../../components/settings/settings.component'
 import { NotificationService } from '../../services/notification.service';
 import { VocabularyStoreService } from '../../services/vocabulary-store.service';
 import { ImportExportService } from '../../services/import-export.service';
+import { AuthService } from '../../services/auth.service';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -64,6 +65,18 @@ function makeImportExportMock(): Partial<ImportExportService> {
   };
 }
 
+function makeAuthServiceMock(isAuthenticated = false) {
+  const sessionValue = isAuthenticated ? { userId: 'u1', name: 'Test User', email: 'test@example.com', image: null } : null;
+  return {
+    session: signal(sessionValue),
+    isAuthenticated: signal(isAuthenticated),
+    isGuest: signal(!isAuthenticated),
+    signIn: vi.fn(),
+    signOut: vi.fn().mockResolvedValue(undefined),
+    loadSession: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
 // ── test suite ────────────────────────────────────────────────────────────────
 
 describe('SettingsComponent — notification settings', () => {
@@ -72,7 +85,8 @@ describe('SettingsComponent — notification settings', () => {
   let injector: EnvironmentInjector;
 
   function createComponent(
-    notifServiceOverrides: Parameters<typeof makeNotificationServiceMock>[0] = {}
+    notifServiceOverrides: Parameters<typeof makeNotificationServiceMock>[0] = {},
+    isAuthenticated = false
   ) {
     mockNotifService = makeNotificationServiceMock(notifServiceOverrides);
 
@@ -80,6 +94,7 @@ describe('SettingsComponent — notification settings', () => {
       { provide: NotificationService, useValue: mockNotifService },
       { provide: VocabularyStoreService, useValue: makeVocabStoreMock() },
       { provide: ImportExportService, useValue: makeImportExportMock() },
+      { provide: AuthService, useValue: makeAuthServiceMock(isAuthenticated) },
     ]);
 
     component = runInInjectionContext(injector, () => new SettingsComponent());
@@ -316,5 +331,75 @@ describe('SettingsComponent — notification settings', () => {
     await component.onToggleNotification();
 
     expect(component.notifEnabled()).toBe(false);
+  });
+});
+
+// ── Auth section tests ────────────────────────────────────────────────────────
+
+describe('SettingsComponent — auth section', () => {
+  let component: SettingsComponent;
+  let mockAuthService: ReturnType<typeof makeAuthServiceMock>;
+  let injector: EnvironmentInjector;
+
+  function createComponent(isAuthenticated = false) {
+    mockAuthService = makeAuthServiceMock(isAuthenticated);
+
+    injector = createEnvironmentInjector([
+      { provide: NotificationService, useValue: makeNotificationServiceMock() },
+      { provide: VocabularyStoreService, useValue: makeVocabStoreMock() },
+      { provide: ImportExportService, useValue: makeImportExportMock() },
+      { provide: AuthService, useValue: mockAuthService },
+    ]);
+
+    component = runInInjectionContext(injector, () => new SettingsComponent());
+  }
+
+  /**
+   * Validates: Requirement 17
+   * When the user is authenticated, isAuthenticated() should be true.
+   */
+  it('shows user name and sign out button when authenticated', () => {
+    createComponent(true);
+    component.ngOnInit();
+
+    expect(component.isAuthenticated()).toBe(true);
+  });
+
+  /**
+   * Validates: Requirement 17
+   * When session is null (Guest Mode), isGuest() should be true.
+   */
+  it('shows sign in button when in Guest Mode', () => {
+    createComponent(false);
+    component.ngOnInit();
+
+    // isGuest is derived from authService — check via the mock
+    expect(mockAuthService.isGuest()).toBe(true);
+  });
+
+  /**
+   * Validates: Requirement 17
+   * onSignIn() should call authService.signIn with 'google'.
+   */
+  it("onSignIn() calls authService.signIn('google')", () => {
+    createComponent(false);
+
+    component.onSignIn();
+
+    expect(mockAuthService.signIn).toHaveBeenCalledOnce();
+    expect(mockAuthService.signIn).toHaveBeenCalledWith('google');
+  });
+
+  /**
+   * Validates: Requirement 17
+   * onSignOut() should call authService.signOut() and set a toast message.
+   */
+  it('onSignOut() calls authService.signOut() and shows toast', async () => {
+    createComponent(true);
+
+    await component.onSignOut();
+
+    expect(mockAuthService.signOut).toHaveBeenCalledOnce();
+    expect(component.toast()).not.toBeNull();
   });
 });

@@ -1,16 +1,19 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { from } from 'rxjs';
 import { liveQuery } from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/vocab-memory-db';
 import { VocabularyEntry } from '../models/vocabulary-entry.model';
+import { SyncService } from './sync.service';
 
 @Injectable({ providedIn: 'root' })
 export class VocabularyStoreService {
   readonly entries = toSignal(from(liveQuery(() => db.vocabulary.toArray())), {
     initialValue: [] as VocabularyEntry[],
   });
+
+  private readonly syncService = inject(SyncService);
 
   async addEntry(
     entry: Omit<VocabularyEntry, 'id' | 'createdAt' | 'updatedAt'>
@@ -20,12 +23,14 @@ export class VocabularyStoreService {
       throw new Error('DUPLICATE_WORD');
     }
     const now = new Date().toISOString();
-    await db.vocabulary.add({
+    const fullEntry: VocabularyEntry = {
       ...entry,
       id: uuidv4(),
       createdAt: now,
       updatedAt: now,
-    });
+    };
+    await db.vocabulary.add(fullEntry);
+    await this.syncService.notifyChange('create', fullEntry);
   }
 
   async updateEntry(id: string, changes: Partial<VocabularyEntry>): Promise<void> {
@@ -33,10 +38,18 @@ export class VocabularyStoreService {
       ...changes,
       updatedAt: new Date().toISOString(),
     });
+    const updatedEntry = await db.vocabulary.get(id);
+    if (updatedEntry) {
+      await this.syncService.notifyChange('update', updatedEntry);
+    }
   }
 
   async deleteEntry(id: string): Promise<void> {
+    const entry = await db.vocabulary.get(id);
     await db.vocabulary.delete(id);
+    if (entry) {
+      await this.syncService.notifyChange('delete', entry);
+    }
   }
 
   async getAllEntries(): Promise<VocabularyEntry[]> {

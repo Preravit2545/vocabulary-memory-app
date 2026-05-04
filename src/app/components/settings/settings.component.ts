@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { VocabularyStoreService } from '../../services/vocabulary-store.service';
 import { ImportExportService } from '../../services/import-export.service';
 import { NotificationService } from '../../services/notification.service';
+import { AuthService } from '../../services/auth.service';
 import { ImportResult } from '../../models/vocabulary-entry.model';
 
 @Component({
@@ -14,6 +15,36 @@ import { ImportResult } from '../../models/vocabulary-entry.model';
   template: `
     <div class="max-w-2xl mx-auto p-4 space-y-8">
       <h2 class="text-xl font-bold">Settings</h2>
+
+      <!-- Auth Section (Req 17) -->
+      <section class="space-y-3">
+        <h3 class="text-lg font-semibold text-gray-800">บัญชีผู้ใช้</h3>
+        @if (isAuthenticated()) {
+          <div class="flex items-center gap-3">
+            <div class="flex-1">
+              <p class="text-sm font-medium text-gray-800">{{ session()?.name ?? session()?.email }}</p>
+              <p class="text-xs text-gray-500">{{ session()?.email }}</p>
+            </div>
+            <button
+              type="button"
+              class="px-4 min-h-[44px] bg-red-100 text-red-700 rounded font-medium hover:bg-red-200 transition-colors text-sm"
+              (click)="onSignOut()"
+            >
+              ออกจากระบบ
+            </button>
+          </div>
+        } @else {
+          <p class="text-sm text-gray-500">เข้าสู่ระบบเพื่อ sync คำศัพท์ข้ามอุปกรณ์</p>
+          <button
+            type="button"
+            class="flex items-center gap-2 px-5 min-h-[44px] bg-white border border-gray-300 rounded font-medium hover:bg-gray-50 transition-colors text-sm shadow-sm"
+            (click)="onSignIn()"
+          >
+            <span>🔑</span>
+            <span>Sign in with Google</span>
+          </button>
+        }
+      </section>
 
       <!-- Notification Settings Section (Req 15) -->
       <section class="space-y-3">
@@ -178,6 +209,11 @@ export class SettingsComponent implements OnInit {
   private vocabStore = inject(VocabularyStoreService);
   private importExport = inject(ImportExportService);
   private notificationService = inject(NotificationService);
+  private authService = inject(AuthService);
+
+  // Auth signals (Req 17)
+  session = this.authService.session;
+  isAuthenticated = this.authService.isAuthenticated;
 
   apiKey = signal(localStorage.getItem('dashscope_api_key') ?? '');
   importResult = signal<ImportResult | null>(null);
@@ -242,6 +278,15 @@ export class SettingsComponent implements OnInit {
     this.notifHour.set(hour);
     this.notifMinute.set(minute);
     await this.notificationService.saveSettings(this.notifEnabled(), hour, minute);
+  }
+
+  onSignIn(): void {
+    this.authService.signIn('google');
+  }
+
+  async onSignOut(): Promise<void> {
+    await this.authService.signOut();
+    this.showToast('ออกจากระบบแล้ว');
   }
 
   saveApiKey(): void {

@@ -3,6 +3,8 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { filter } from 'rxjs/operators';
 import { NotificationService } from './services/notification.service';
+import { AuthService } from './services/auth.service';
+import { SyncService } from './services/sync.service';
 
 /** Minimal typing for the non-standard BeforeInstallPromptEvent. */
 interface BeforeInstallPromptEvent extends Event {
@@ -58,6 +60,26 @@ const INSTALL_PROMPT_DISMISSED_KEY = 'install_prompt_dismissed_at';
         <div class="bg-amber-400 text-amber-900 px-4 py-2 text-center text-sm font-medium z-40" role="status" aria-live="polite">
           ไม่มีการเชื่อมต่ออินเทอร์เน็ต — ฟีเจอร์ AI ไม่พร้อมใช้งาน
         </div>
+      }
+
+      <!-- Guest Mode banner (Req 17) -->
+      @if (isGuest() && showGuestBanner()) {
+        <div class="bg-indigo-50 border-b border-indigo-200 px-4 py-2 flex items-center justify-between gap-2">
+          <p class="text-sm text-indigo-700">เข้าสู่ระบบเพื่อ sync คำศัพท์ข้ามอุปกรณ์</p>
+          <div class="flex gap-2 shrink-0">
+            <a routerLink="/settings" class="text-sm font-medium text-indigo-600 underline min-h-[44px] flex items-center">เข้าสู่ระบบ</a>
+            <button (click)="showGuestBanner.set(false)" class="text-indigo-400 hover:text-indigo-600 min-h-[44px] min-w-[44px] flex items-center justify-center text-lg">✕</button>
+          </div>
+        </div>
+      }
+
+      <!-- Sync status indicator (Req 17) -->
+      @if (!isGuest()) {
+        @if (syncStatus() === 'syncing') {
+          <div class="bg-blue-50 px-4 py-1 text-center text-xs text-blue-600">Syncing…</div>
+        } @else if (pendingCount() > 0) {
+          <div class="bg-amber-50 px-4 py-1 text-center text-xs text-amber-700">Offline — changes saved locally</div>
+        }
       }
 
       <!-- Main content area -->
@@ -128,8 +150,25 @@ export class App implements OnInit {
   isOffline = signal(!navigator.onLine);
 
   private readonly notificationService = inject(NotificationService);
+  private readonly authService = inject(AuthService);
+  private readonly syncService = inject(SyncService);
+
+  // Auth / Guest mode signals (Req 17)
+  isGuest = this.authService.isGuest;
+  showGuestBanner = signal(true);
+
+  // Sync status signals (Req 17)
+  syncStatus = this.syncService.syncStatus;
+  pendingCount = this.syncService.pendingCount;
 
   ngOnInit(): void {
+    // Load auth session on startup
+    this.authService.loadSession().then(() => {
+      if (this.authService.isAuthenticated()) {
+        this.syncService.initialSync();
+      }
+    });
+
     // Track online/offline status
     window.addEventListener('online', () => this.isOffline.set(false));
     window.addEventListener('offline', () => this.isOffline.set(true));

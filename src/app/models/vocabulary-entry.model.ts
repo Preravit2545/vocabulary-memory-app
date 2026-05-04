@@ -110,3 +110,13 @@ export interface UndoState {
   deckIndexBeforeRating: number;
   ratingApplied: Rating;
 }
+
+export interface PendingChange {
+  id: string;
+  operation: 'create' | 'update' | 'delete';
+  entryId: string;
+  payload: VocabularyEntry | null;
+  createdAt: string;
+  retryCount: number;
+  nextRetryAt: string;
+}

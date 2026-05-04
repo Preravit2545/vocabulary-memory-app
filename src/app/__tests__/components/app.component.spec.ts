@@ -11,6 +11,7 @@ import {
   createEnvironmentInjector,
   runInInjectionContext,
   EnvironmentInjector,
+  signal,
 } from '@angular/core';
 import { Subject } from 'rxjs';
 import { VersionReadyEvent } from '@angular/service-worker';
@@ -18,6 +19,8 @@ import { App } from '../../app';
 import { NotificationService } from '../../services/notification.service';
 import { SwUpdate } from '@angular/service-worker';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
+import { SyncService } from '../../services/sync.service';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -37,6 +40,26 @@ function makeSwUpdateMock() {
   };
 }
 
+function makeAuthServiceMock(isGuest = true) {
+  return {
+    session: signal(isGuest ? null : { userId: 'u1', name: 'Test', email: 'test@example.com', image: null }),
+    isAuthenticated: signal(!isGuest),
+    isGuest: signal(isGuest),
+    loadSession: vi.fn().mockResolvedValue(undefined),
+    signIn: vi.fn(),
+    signOut: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+function makeSyncServiceMock() {
+  return {
+    syncStatus: signal<'synced' | 'syncing' | 'offline-with-queue'>('synced'),
+    pendingCount: signal(0),
+    initialSync: vi.fn().mockResolvedValue(undefined),
+    notifyChange: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
 // ── test suite ────────────────────────────────────────────────────────────────
 
 describe('App — PWA install prompt and update banner', () => {
@@ -52,10 +75,12 @@ describe('App — PWA install prompt and update banner', () => {
     injector = createEnvironmentInjector([
       { provide: NotificationService, useValue: mockNotifService },
       { provide: SwUpdate, useValue: mockSwUpdate },
+      { provide: AuthService, useValue: makeAuthServiceMock() },
+      { provide: SyncService, useValue: makeSyncServiceMock() },
       RouterOutlet,
       RouterLink,
       RouterLinkActive,
-    ]);
+    ], null as any);
 
     component = runInInjectionContext(injector, () => new App());
   }
@@ -204,5 +229,102 @@ describe('App — PWA install prompt and update banner', () => {
 
     expect(mockSwUpdate.activateUpdate).toHaveBeenCalledOnce();
     expect(window.location.reload).toHaveBeenCalledOnce();
+  });
+});
+
+// ── Guest Mode banner and sync status tests ───────────────────────────────────
+
+describe('App — Guest Mode banner and sync status', () => {
+  let component: App;
+  let mockAuthService: ReturnType<typeof makeAuthServiceMock>;
+  let mockSyncService: ReturnType<typeof makeSyncServiceMock>;
+  let mockSwUpdate: ReturnType<typeof makeSwUpdateMock>;
+  let injector: EnvironmentInjector;
+
+  function createComponent(isGuest = true) {
+    mockAuthService = makeAuthServiceMock(isGuest);
+    mockSyncService = makeSyncServiceMock();
+    mockSwUpdate = makeSwUpdateMock();
+
+    injector = createEnvironmentInjector([
+      { provide: NotificationService, useValue: makeNotificationServiceMock() },
+      { provide: SwUpdate, useValue: mockSwUpdate },
+      { provide: AuthService, useValue: mockAuthService },
+      { provide: SyncService, useValue: mockSyncService },
+      RouterOutlet,
+      RouterLink,
+      RouterLinkActive,
+    ], null as any);
+
+    component = runInInjectionContext(injector, () => new App());
+  }
+
+  /**
+   * Validates: Requirement 17
+   * When the user is a guest, isGuest() is true and showGuestBanner() starts as true.
+   */
+  it('shows guest mode banner when isGuest is true and showGuestBanner is true', () => {
+    createComponent(true);
+
+    expect(component.isGuest()).toBe(true);
+    expect(component.showGuestBanner()).toBe(true);
+  });
+
+  /**
+   * Validates: Requirement 17
+   * After setting showGuestBanner to false, it should be false.
+   */
+  it('hides guest mode banner when showGuestBanner is set to false', () => {
+    createComponent(true);
+
+    component.showGuestBanner.set(false);
+
+    expect(component.showGuestBanner()).toBe(false);
+  });
+
+  /**
+   * Validates: Requirement 17
+   * The initial sync status should be 'synced'.
+   */
+  it("sync status is 'synced' initially", () => {
+    createComponent(true);
+
+    expect(component.syncStatus()).toBe('synced');
+  });
+
+  /**
+   * Validates: Requirement 17
+   * When syncStatus is set to 'syncing', the component reflects that.
+   */
+  it("sync status indicator shows 'syncing' when syncStatus is syncing", () => {
+    createComponent(false);
+
+    mockSyncService.syncStatus.set('syncing');
+
+    expect(component.syncStatus()).toBe('syncing');
+  });
+
+  /**
+   * Validates: Requirement 17
+   * When pendingCount is set to 3, the component reflects that.
+   */
+  it("sync status indicator shows 'offline-with-queue' when pendingCount > 0", () => {
+    createComponent(false);
+
+    mockSyncService.pendingCount.set(3);
+
+    expect(component.pendingCount()).toBe(3);
+  });
+
+  /**
+   * Validates: Requirement 17
+   * On ngOnInit(), authService.loadSession should be called.
+   */
+  it('loadSession is called on init', async () => {
+    createComponent(true);
+
+    await component.ngOnInit();
+
+    expect(mockAuthService.loadSession).toHaveBeenCalledOnce();
   });
 });
