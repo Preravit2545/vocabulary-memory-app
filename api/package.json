@@ -1,0 +1,21 @@
+{
+  "name": "vocab-memory-api",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "migrate": "node --env-file=../.env.local --experimental-strip-types api/db/migrate.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "@vercel/node": "^5.1.14",
+    "google-auth-library": "^9.15.1",
+    "jsonwebtoken": "^9.0.2",
+    "cookie": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/cookie": "^1.0.0",
+    "typescript": "^5.9.2"
+  }
+}
