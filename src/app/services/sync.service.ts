@@ -42,11 +42,15 @@ export class SyncService {
   }
 
   async syncReviewSession(session: ReviewSession): Promise<void> {
-    if (this.authService.isGuest() || !navigator.onLine) return;
+    if (this.authService.isGuest()) return;
+    if (!navigator.onLine) {
+      await this.enqueueSession(session);
+      return;
+    }
     try {
       await this.apiClient.createReviewSession(session);
     } catch {
-      // best-effort; review sessions are not queued
+      await this.enqueueSession(session);
     }
   }
 
@@ -69,6 +73,8 @@ export class SyncService {
           await this.apiClient.updateVocabularyEntry(change.entryId, change.payload);
         } else if (change.operation === 'delete') {
           await this.apiClient.deleteVocabularyEntry(change.entryId);
+        } else if (change.operation === 'create-session' && change.sessionPayload) {
+          await this.apiClient.createReviewSession(change.sessionPayload);
         }
         await db.syncQueue.delete(change.id);
       } catch (err) {
@@ -128,6 +134,20 @@ export class SyncService {
         }
       }
 
+      // Push local-only sessions to cloud (bidirectional sync)
+      const cloudSessionIds = new Set(cloudSessions.map(s => s.id));
+      const localSessions = await db.reviewSessions.toArray();
+      for (const localSession of localSessions) {
+        if (!cloudSessionIds.has(localSession.id)) {
+          try {
+            await this.apiClient.createReviewSession(localSession);
+          } catch {
+            // Queue for retry if push fails
+            await this.enqueueSession(localSession);
+          }
+        }
+      }
+
       if (conflictsResolved > 0) {
         // Toast will be shown by the component observing syncStatus
         console.log(`Resolved ${conflictsResolved} conflicts during sync`);
@@ -147,6 +167,24 @@ export class SyncService {
       operation: op,
       entryId: entry.id,
       payload: op === 'delete' ? null : entry,
+      createdAt: now,
+      retryCount: 0,
+      nextRetryAt: new Date(Date.now() + 5000).toISOString(),
+    };
+    await db.syncQueue.add(change);
+    const count = await db.syncQueue.count();
+    this.pendingCount.set(count);
+    this.syncStatus.set('offline-with-queue');
+  }
+
+  private async enqueueSession(session: ReviewSession): Promise<void> {
+    const now = new Date().toISOString();
+    const change: PendingChange = {
+      id: uuidv4(),
+      operation: 'create-session',
+      entryId: session.id, // reuse entryId field as sessionId for queue lookup
+      payload: null,
+      sessionPayload: session,
       createdAt: now,
       retryCount: 0,
       nextRetryAt: new Date(Date.now() + 5000).toISOString(),

@@ -113,9 +113,10 @@ export interface UndoState {
 
 export interface PendingChange {
   id: string;
-  operation: 'create' | 'update' | 'delete';
+  operation: 'create' | 'update' | 'delete' | 'create-session';
   entryId: string;
   payload: VocabularyEntry | null;
+  sessionPayload?: ReviewSession;
   createdAt: string;
   retryCount: number;
   nextRetryAt: string;

@@ -1,8 +1,9 @@
-import { Component, inject, signal, OnInit, ViewEncapsulation } from '@angular/core';
+import { Component, inject, signal, OnInit, ViewEncapsulation, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ProgressStats } from '../../models/vocabulary-entry.model';
 import { VocabularyStoreService } from '../../services/vocabulary-store.service';
 import { StreakService } from '../../services/streak.service';
+import { SyncService } from '../../services/sync.service';
 import { db } from '../../db/vocab-memory-db';
 
 @Component({
@@ -59,12 +60,22 @@ import { db } from '../../db/vocab-memory-db';
 export class ProgressComponent implements OnInit {
   private vocabStore = inject(VocabularyStoreService);
   private streakService = inject(StreakService);
+  private syncService = inject(SyncService);
 
   stats = signal<ProgressStats | null>(null);
   isLoading = signal(true);
 
+  constructor() {
+    // Reload stats whenever sync completes
+    effect(() => {
+      if (this.syncService.syncStatus() === 'synced') {
+        this.loadStats();
+      }
+    });
+  }
+
   ngOnInit(): void {
-    this.loadStats();
+    this.loadStats(); // still load immediately for cached/guest data
   }
 
   private async loadStats(): Promise<void> {
