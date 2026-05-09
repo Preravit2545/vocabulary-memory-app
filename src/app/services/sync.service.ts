@@ -111,17 +111,40 @@ export class SyncService {
         this.apiClient.getReviewSessions(),
       ]);
 
-      // Merge vocabulary entries
+      // Merge vocabulary entries (bidirectional)
       let conflictsResolved = 0;
+      const cloudEntryIds = new Set(cloudEntries.map(e => e.id));
+
       for (const cloudEntry of cloudEntries) {
         const local = await db.vocabulary.get(cloudEntry.id);
         if (!local) {
+          // Cloud has entry that local doesn't — pull it down
           await db.vocabulary.put(cloudEntry);
         } else {
           const winner = this.resolveConflict(local, cloudEntry);
           if (winner !== local) {
+            // Cloud version won — update local
             await db.vocabulary.put(winner);
             conflictsResolved++;
+          } else if (winner === local && local.updatedAt !== cloudEntry.updatedAt) {
+            // Local version won — push it up to cloud so other devices get it
+            try {
+              await this.apiClient.updateVocabularyEntry(local.id, local);
+            } catch {
+              await this.enqueue('update', local);
+            }
+          }
+        }
+      }
+
+      // Push local-only entries to cloud (entries that exist locally but not in cloud)
+      const localEntries = await db.vocabulary.toArray();
+      for (const localEntry of localEntries) {
+        if (!cloudEntryIds.has(localEntry.id)) {
+          try {
+            await this.apiClient.createVocabularyEntry(localEntry);
+          } catch {
+            await this.enqueue('create', localEntry);
           }
         }
       }
