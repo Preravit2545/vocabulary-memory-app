@@ -1,4 +1,5 @@
 import { Injectable, signal, computed } from '@angular/core';
+import { db } from '../db/vocab-memory-db';
 
 export interface UserSession {
   userId: string;
@@ -60,6 +61,10 @@ export class AuthService {
       await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' });
     } finally {
       localStorage.removeItem('vocab_session_token');
+      // Clear all local data so the next user (or re-login) starts fresh
+      await db.vocabulary.clear();
+      await db.reviewSessions.clear();
+      await db.syncQueue.clear();
       this.session.set(null);
     }
   }
