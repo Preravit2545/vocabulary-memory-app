@@ -169,8 +169,28 @@ export class App implements OnInit {
       }
     });
 
+    // Re-sync when app comes back to foreground (tab/app switch)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this.authService.isAuthenticated()) {
+        this.syncService.initialSync();
+      }
+    });
+
+    // Periodic sync every 5 minutes to catch changes from other devices
+    setInterval(() => {
+      if (this.authService.isAuthenticated() && navigator.onLine) {
+        this.syncService.initialSync();
+      }
+    }, 5 * 60 * 1000);
+
     // Track online/offline status
-    window.addEventListener('online', () => this.isOffline.set(false));
+    window.addEventListener('online', () => {
+      this.isOffline.set(false);
+      // Sync immediately when coming back online
+      if (this.authService.isAuthenticated()) {
+        this.syncService.initialSync();
+      }
+    });
     window.addEventListener('offline', () => this.isOffline.set(true));
 
     window.addEventListener('beforeinstallprompt', (event: Event) => {

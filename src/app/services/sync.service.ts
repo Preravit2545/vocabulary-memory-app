@@ -14,6 +14,7 @@ export class SyncService {
 
   private readonly apiClient = inject(ApiClient);
   private readonly authService = inject(AuthService);
+  private isSyncing = false;
 
   constructor() {
     window.addEventListener('online', () => {
@@ -104,6 +105,8 @@ export class SyncService {
 
   async initialSync(): Promise<void> {
     if (this.authService.isGuest()) return;
+    if (this.isSyncing) return; // prevent concurrent syncs
+    this.isSyncing = true;
     this.syncStatus.set('syncing');
     try {
       const [cloudEntries, cloudSessions] = await Promise.all([
@@ -180,6 +183,8 @@ export class SyncService {
     } catch (err) {
       console.error('Initial sync failed:', err);
       this.syncStatus.set('offline-with-queue');
+    } finally {
+      this.isSyncing = false;
     }
   }
 
