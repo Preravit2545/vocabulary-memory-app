@@ -1,8 +1,9 @@
-import { Component, inject, signal, OnInit, ViewEncapsulation } from '@angular/core';
+import { Component, inject, signal, OnInit, ViewEncapsulation, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { v4 as uuidv4 } from 'uuid';
 import { VocabularyStoreService } from '../../services/vocabulary-store.service';
 import { SrsEngineService } from '../../services/srs-engine.service';
+import { SyncService } from '../../services/sync.service';
 import { db } from '../../db/vocab-memory-db';
 import { VocabularyEntry, Rating, SessionStats, UndoState } from '../../models/vocabulary-entry.model';
 import { shuffleDeck } from '../../utils/shuffle';
@@ -215,6 +216,7 @@ import { shuffleDeck } from '../../utils/shuffle';
 export class ReviewComponent implements OnInit {
   private vocabStore = inject(VocabularyStoreService);
   private srsEngine = inject(SrsEngineService);
+  private syncService = inject(SyncService);
 
   deck = signal<VocabularyEntry[]>([]);
   currentIndex = signal(0);
@@ -224,6 +226,15 @@ export class ReviewComponent implements OnInit {
   isLoading = signal(true);
   isComplete = signal(false);
   undoState = signal<UndoState | null>(null);
+
+  constructor() {
+    // Reload deck when sync completes (e.g., after visibility change or periodic sync)
+    effect(() => {
+      if (this.syncService.syncStatus() === 'synced' && !this.isLoading() && !this.isComplete()) {
+        this.loadDeck();
+      }
+    });
+  }
 
   get currentCard(): VocabularyEntry | null {
     return this.deck()[this.currentIndex()] ?? null;

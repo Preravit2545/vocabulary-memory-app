@@ -93,9 +93,22 @@ export class SyncService {
   }
 
   resolveConflict(local: VocabularyEntry, cloud: VocabularyEntry): VocabularyEntry {
+    // For SRS fields, always prefer higher progress (max interval and easeFactor)
+    // to avoid losing user progress in offline conflict scenarios
+    const localProgress = local.interval * local.easeFactor;
+    const cloudProgress = cloud.interval * cloud.easeFactor;
+
+    if (localProgress > cloudProgress) {
+      return local;
+    } else if (cloudProgress > localProgress) {
+      return cloud;
+    }
+
+    // Tie in progress: use updatedAt as tiebreaker
     if (local.updatedAt > cloud.updatedAt) return local;
     if (cloud.updatedAt > local.updatedAt) return cloud;
-    // Tie: preserve higher interval and easeFactor
+
+    // Complete tie: preserve max values
     return {
       ...cloud,
       interval: Math.max(local.interval, cloud.interval),

@@ -4,6 +4,8 @@ import { ProgressStats } from '../../models/vocabulary-entry.model';
 import { VocabularyStoreService } from '../../services/vocabulary-store.service';
 import { StreakService } from '../../services/streak.service';
 import { SyncService } from '../../services/sync.service';
+import { AuthService } from '../../services/auth.service';
+import { ApiClient } from '../../services/api-client';
 import { db } from '../../db/vocab-memory-db';
 
 @Component({
@@ -61,6 +63,8 @@ export class ProgressComponent implements OnInit {
   private vocabStore = inject(VocabularyStoreService);
   private streakService = inject(StreakService);
   private syncService = inject(SyncService);
+  private authService = inject(AuthService);
+  private apiClient = inject(ApiClient);
 
   stats = signal<ProgressStats | null>(null);
   isLoading = signal(true);
@@ -75,15 +79,36 @@ export class ProgressComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.loadStats(); // still load immediately for cached/guest data
+    this.loadStats();
   }
 
   private async loadStats(): Promise<void> {
-    const [entries, sessions] = await Promise.all([
-      this.vocabStore.getAllEntries(),
-      db.reviewSessions.toArray(),
-    ]);
-    this.stats.set(this.streakService.getProgressStats(entries, sessions));
-    this.isLoading.set(false);
+    try {
+      if (this.authService.isAuthenticated()) {
+        // Authenticated: fetch from cloud database as source of truth
+        const [entries, sessions] = await Promise.all([
+          this.apiClient.getVocabulary(),
+          this.apiClient.getReviewSessions(),
+        ]);
+        this.stats.set(this.streakService.getProgressStats(entries, sessions));
+      } else {
+        // Guest mode: use local IndexedDB
+        const [entries, sessions] = await Promise.all([
+          this.vocabStore.getAllEntries(),
+          db.reviewSessions.toArray(),
+        ]);
+        this.stats.set(this.streakService.getProgressStats(entries, sessions));
+      }
+    } catch (err) {
+      console.error('Failed to load progress stats:', err);
+      // Fallback to local data on error
+      const [entries, sessions] = await Promise.all([
+        this.vocabStore.getAllEntries(),
+        db.reviewSessions.toArray(),
+      ]);
+      this.stats.set(this.streakService.getProgressStats(entries, sessions));
+    } finally {
+      this.isLoading.set(false);
+    }
   }
 }
