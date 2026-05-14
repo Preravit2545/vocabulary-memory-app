@@ -1,5 +1,6 @@
 {
   "buildCommand": "npm run build",
+  "installCommand": "npm install",
   "outputDirectory": "dist/vocabulary-memory-app/browser",
   "devCommand": "echo 'API only mode'",
   "rewrites": [
