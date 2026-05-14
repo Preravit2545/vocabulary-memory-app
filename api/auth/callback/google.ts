@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
-import { sql } from '../../lib/db';
-import { createSessionCookie } from '../../lib/session';
+import { sql } from '../../lib/db.js';
+import { createSessionCookie } from '../../lib/session.js';
 
 const client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,

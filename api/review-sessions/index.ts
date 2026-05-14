@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSession } from '../lib/session';
-import { sql } from '../lib/db';
-import { rowToSession } from '../db/mapper';
+import { getSession } from '../lib/session.js';
+import { sql } from '../lib/db.js';
+import { rowToSession } from '../db/mapper.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const session = getSession(req);
