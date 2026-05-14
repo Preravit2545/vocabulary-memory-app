@@ -1,6 +1,12 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist/vocabulary-memory-app/browser",
+  "buildCommand": "cd vocabulary-memory-app && npm run build",
+  "outputDirectory": "vocabulary-memory-app/dist/vocabulary-memory-app/browser",
+  "devCommand": "echo 'API only mode'",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node@3"
+    }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
