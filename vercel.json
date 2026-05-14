@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npx ng build",
   "installCommand": "npm install",
   "outputDirectory": "dist/vocabulary-memory-app/browser",
   "devCommand": "echo 'API only mode'",
