@@ -1,7 +1,11 @@
 {
   "name": "vocab-memory-api",
   "version": "1.0.0",
+  "type": "module",
   "private": true,
+  "scripts": {
+    "migrate": "node --env-file=../.env.local --experimental-strip-types api/db/migrate.ts"
+  },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
     "@vercel/node": "^5.1.14",

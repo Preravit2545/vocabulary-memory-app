@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
-import { sql } from '../../lib/db';
-import { createSessionCookie } from '../../lib/session';
+import { sql } from '../../lib/db.ts';
+import { createSessionCookie } from '../../lib/session.ts';
 
 const client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
@@ -64,4 +64,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(500).json({ error: 'Authentication failed' });
   }
 }
-

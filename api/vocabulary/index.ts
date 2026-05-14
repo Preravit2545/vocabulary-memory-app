@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSession } from '../lib/session';
-import { sql } from '../lib/db';
-import { rowToEntry, entryToRow } from '../db/mapper';
+import { getSession } from '../lib/session.ts';
+import { sql } from '../lib/db.ts';
+import { rowToEntry, entryToRow } from '../db/mapper.ts';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const session = getSession(req);
@@ -40,4 +40,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   return res.status(405).json({ error: 'Method not allowed' });
 }
-

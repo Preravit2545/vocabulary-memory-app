@@ -1,4 +1,4 @@
-import { sql } from '../lib/db';
+import { sql } from '../lib/db.ts';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -25,4 +25,3 @@ export async function runMigration(): Promise<void> {
 
 // Run if called directly (ESM equivalent of require.main === module)
 runMigration().catch(console.error);
-

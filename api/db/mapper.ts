@@ -1,4 +1,5 @@
-// Define types inline to avoid cross-directory import issues
+// Define types inline to avoid importing from Angular app
+// (--experimental-strip-types has issues with Angular decorator files)
 
 export interface VocabularyEntry {
   id: string;
