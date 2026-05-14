@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd vocabulary-memory-app && npm run build",
-  "outputDirectory": "vocabulary-memory-app/dist/vocabulary-memory-app/browser",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/vocabulary-memory-app/browser",
   "devCommand": "echo 'API only mode'",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
