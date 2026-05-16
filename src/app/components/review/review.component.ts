@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, ViewEncapsulation, effect } from '@angular/core';
+import { Component, inject, signal, OnInit, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { v4 as uuidv4 } from 'uuid';
 import { VocabularyStoreService } from '../../services/vocabulary-store.service';
@@ -228,12 +228,7 @@ export class ReviewComponent implements OnInit {
   undoState = signal<UndoState | null>(null);
 
   constructor() {
-    // Reload deck when sync completes (e.g., after visibility change or periodic sync)
-    effect(() => {
-      if (this.syncService.syncStatus() === 'synced' && !this.isLoading() && !this.isComplete()) {
-        this.loadDeck();
-      }
-    });
+    // No automatic deck reload on sync — deck is loaded once in ngOnInit()
   }
 
   get currentCard(): VocabularyEntry | null {
@@ -318,18 +313,26 @@ export class ReviewComponent implements OnInit {
     if (isLast) {
       // Save review session
       const today = new Date().toISOString().split('T')[0];
-      await db.reviewSessions.add({
+      const session = {
         id: uuidv4(),
         date: today,
         reviewedCount: this.deck().length,
         completedAt: new Date().toISOString(),
-      });
+      };
+      await db.reviewSessions.add(session);
       this.undoState.set(null);
       this.isComplete.set(true);
+
+      // Sync after completing the session (triggered by rating button press)
+      await this.syncService.syncReviewSession(session);
+      await this.syncService.initialSync();
     } else {
       this.currentIndex.set(this.currentIndex() + 1);
       this.isRevealed.set(false);
       this.showPosInfo.set(false);
+
+      // Sync after each rating (triggered by rating button press)
+      await this.syncService.initialSync();
     }
   }
 

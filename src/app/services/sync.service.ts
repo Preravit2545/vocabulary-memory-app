@@ -17,11 +17,7 @@ export class SyncService {
   private isSyncing = false;
 
   constructor() {
-    window.addEventListener('online', () => {
-      if (this.authService.isAuthenticated()) {
-        this.processSyncQueue();
-      }
-    });
+    // No automatic sync — sync is triggered manually after rating a card
   }
 
   async notifyChange(op: 'create' | 'update' | 'delete', entry: VocabularyEntry): Promise<void> {

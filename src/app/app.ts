@@ -162,35 +162,11 @@ export class App implements OnInit {
   pendingCount = this.syncService.pendingCount;
 
   ngOnInit(): void {
-    // Load auth session on startup
-    this.authService.loadSession().then(() => {
-      if (this.authService.isAuthenticated()) {
-        this.syncService.initialSync();
-      }
-    });
+    // Load auth session on startup (no automatic sync — sync is triggered manually after rating)
+    this.authService.loadSession();
 
-    // Re-sync when app comes back to foreground (tab/app switch)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && this.authService.isAuthenticated()) {
-        this.syncService.initialSync();
-      }
-    });
-
-    // Periodic sync every 5 minutes to catch changes from other devices
-    setInterval(() => {
-      if (this.authService.isAuthenticated() && navigator.onLine) {
-        this.syncService.initialSync();
-      }
-    }, 5 * 60 * 1000);
-
-    // Track online/offline status
-    window.addEventListener('online', () => {
-      this.isOffline.set(false);
-      // Sync immediately when coming back online
-      if (this.authService.isAuthenticated()) {
-        this.syncService.initialSync();
-      }
-    });
+    // Track online/offline status only — no automatic sync on reconnect
+    window.addEventListener('online', () => this.isOffline.set(false));
     window.addEventListener('offline', () => this.isOffline.set(true));
 
     window.addEventListener('beforeinstallprompt', (event: Event) => {
