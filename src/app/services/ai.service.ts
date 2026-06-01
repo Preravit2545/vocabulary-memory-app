@@ -9,7 +9,7 @@ import {
 const DASHSCOPE_ENDPOINT =
   'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
 const MODEL = 'qwen3.6-flash';
-const TIMEOUT_MS = 10_000;
+const TIMEOUT_MS = 60_000;
 
 @Injectable({ providedIn: 'root' })
 export class AiService {
